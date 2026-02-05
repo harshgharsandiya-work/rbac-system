@@ -7,20 +7,44 @@ datasource db {
 }
 
 model User {
-  id       String @id @default(uuid())
-  email    String @unique
-  password String
+  id        String     @id @default(uuid())
+  email     String     @unique
+  password  String
+  userRoles UserRole[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Role {
-  id   String @id @default(uuid())
-  name String @unique
+  id              String           @id @default(uuid())
+  name            String           @unique
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
 }
 
 model Permission {
-  id  String @id @default(uuid())
-  key String @unique
+  id              String           @id @default(uuid())
+  key             String           @unique
+  rolePermissions RolePermission[]
+}
+
+model UserRole {
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id])
+  role Role @relation(fields: [roleId], references: [id])
+
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
 }
