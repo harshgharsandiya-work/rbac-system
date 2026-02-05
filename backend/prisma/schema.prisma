@@ -27,11 +27,11 @@ model Organisation {
 }
 
 model Role {
-  id             String @id @default(uuid())
+  id             String  @id @default(uuid())
   name           String
-  organisationId String
+  organisationId String?
 
-  organisation Organisation @relation(fields: [organisationId], references: [id])
+  organisation Organisation? @relation(fields: [organisationId], references: [id])
 
   memberShips     MemberShip[]
   rolePermissions RolePermission[]
@@ -40,11 +40,11 @@ model Role {
 }
 
 model Permission {
-  id             String @id @default(uuid())
+  id             String  @id @default(uuid())
   key            String
-  organisationId String
+  organisationId String?
 
-  organisation Organisation @relation(fields: [organisationId], references: [id])
+  organisation Organisation? @relation(fields: [organisationId], references: [id])
 
   rolePermissions RolePermission[]
 
@@ -57,11 +57,11 @@ model MemberShip {
   organisationId String
   roleId         String
 
-  user        User         @relation(fields: [userId], references: [id])
-  organsation Organisation @relation(fields: [organisationId], references: [id])
-  role        Role         @relation(fields: [roleId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+  role         Role         @relation(fields: [roleId], references: [id])
 
-  @@unique([userId, organisationId])
+  @@unique([userId, organisationId, roleId])
 }
 
 model RolePermission {
