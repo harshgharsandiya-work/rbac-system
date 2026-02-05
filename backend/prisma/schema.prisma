@@ -19,3 +19,8 @@ model Role {
   id   String @id @default(uuid())
   name String @unique
 }
+
+model Permission {
+  id  String @id @default(uuid())
+  key String @unique
+}
