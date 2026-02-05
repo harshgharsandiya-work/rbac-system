@@ -1,15 +1,8 @@
 require("dotenv").config();
 
-const express = require("express");
 const prisma = require("./config/prisma");
 
-const app = express();
-
-app.use(express.json());
-
-app.get("/", (req, res) => {
-    res.status(200).json("IAM Backend running...");
-});
+const app = require("./app");
 
 const PORT = process.env.PORT || 4000;
 
