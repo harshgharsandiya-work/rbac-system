@@ -1,23 +1,16 @@
 const express = require("express");
-const { hasPermission } = require("../rbac/permissionCheck");
 const prisma = require("../config/prisma");
+const { canAccess } = require("../rbac/canAccess");
 
 const router = express.Router();
 
-router.get("/demo", async (req, res) => {
-    const user = await prisma.user.findUnique({
-        where: {
-            email: "user@example.com",
-        },
+router.post("/demo", async (req, res) => {
+    const { userId, orgId } = req.body;
+
+    const canCreate = await canAccess(userId, orgId, "project:create");
+    res.json({
+        canCreate,
     });
-
-    const isAllowed = await hasPermission(user.id, "user:read");
-
-    if (!isAllowed) {
-        return res.status(403).json({ message: "Forbidden" });
-    }
-
-    res.json({ message: "You can read users" });
 });
 
 module.exports = router;
