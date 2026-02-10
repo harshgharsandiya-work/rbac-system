@@ -24,7 +24,7 @@ const prisma = require("../config/prisma");
 
 async function canAccess(userId, organisationId, permissionKey) {
     //Find user in organisation including roles + associated permissions
-    const membership = await prisma.memberShip.findFirst({
+    const memberships = await prisma.memberShip.findMany({
         where: {
             userId,
             organisationId,
@@ -42,12 +42,14 @@ async function canAccess(userId, organisationId, permissionKey) {
         },
     });
 
-    if (!membership) {
+    if (!memberships.length) {
         return false;
     }
 
-    return membership.role.rolePermissions.some(
-        (rp) => rp.permission.key === permissionKey,
+    return memberships.some((membership) =>
+        membership.role.rolePermissions.some(
+            (rp) => rp.permission.key === permissionKey,
+        ),
     );
 }
 
