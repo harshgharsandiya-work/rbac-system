@@ -1,24 +1,25 @@
 const bcrypt = require("bcryptjs");
 const prisma = require("../src/config/prisma");
+const { hashPassword } = require("../src/auth/password");
 
-const orgId = "f89da722-1b24-47d8-8c62-a971a50a01b4";
+const organisationId = "f89da722-1b24-47d8-8c62-a971a50a01b4";
 
 async function main() {
     //organisation
     const org = await prisma.organisation.upsert({
         where: {
-            id: orgId,
+            id: organisationId,
         },
         update: {},
         create: {
-            id: orgId,
+            id: organisationId,
             name: "Acme Inc",
         },
     });
 
     //user
-    const hashedAdminPassword = await bcrypt.hash("admin@123", 10);
-    const hashedUserPassword = await bcrypt.hash("user@123", 10);
+    const hashedAdminPassword = await hashPassword("admin@123");
+    const hashedUserPassword = await hashPassword("user@123");
 
     const adminUser = await prisma.user.upsert({
         where: {
