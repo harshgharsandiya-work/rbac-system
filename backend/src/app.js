@@ -2,6 +2,8 @@ const express = require("express");
 
 const demoRoutes = require("./routes/demo.routes");
 const { requirePermission } = require("./rbac/requirePermission");
+const { authenticate } = require("./auth/authMiddleware");
+const { signToken } = require("./auth/token");
 
 const app = express();
 
@@ -13,9 +15,23 @@ app.use((req, res, next) => {
     next();
 });
 
-app.post("/projects", requirePermission("user:create"), (req, res) => {
-    res.json({ message: "Project created 🎉" });
+// temp login
+app.post("/login", async (req, res) => {
+    const { userId, orgId } = req.body;
+
+    const token = signToken({ userId, orgId });
+
+    res.json({ token });
 });
+
+app.post(
+    "/projects",
+    authenticate,
+    requirePermission("user:create"),
+    (req, res) => {
+        res.json({ message: "Project created 🎉" });
+    },
+);
 
 app.get("/", (req, res) => {
     res.status(200).json("IAM Backend running...");
