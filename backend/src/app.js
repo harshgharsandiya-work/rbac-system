@@ -6,6 +6,7 @@ const { authenticate } = require("./auth/authMiddleware");
 //routes
 const demoRoutes = require("./routes/demo.routes");
 const authRoutes = require("./routes/auth.routes");
+const permissionsRoutes = require("./routes/permissions.routes");
 
 const app = express();
 
@@ -26,5 +27,6 @@ app.get("/", (req, res) => {
 
 app.use("/api", demoRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/permissions", permissionsRoutes);
 
 module.exports = app;
