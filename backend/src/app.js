@@ -14,7 +14,7 @@ app.use(express.json());
 app.post(
     "/projects",
     authenticate,
-    requirePermission("user:create"),
+    requirePermission("project:create"),
     (req, res) => {
         res.json({ message: "Project created 🎉" });
     },

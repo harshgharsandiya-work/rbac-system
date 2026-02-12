@@ -46,6 +46,8 @@ async function canAccess(userId, organisationId, permissionKey) {
         return false;
     }
 
+    // Handle multiple role in one organisation
+    // If ANY role has the permission → access granted
     return memberships.some((membership) =>
         membership.role.rolePermissions.some(
             (rp) => rp.permission.key === permissionKey,
