@@ -21,9 +21,10 @@ model Organisation {
   name        String
   memberShips MemberShip[]
   roles       Role[]
-
-  createdAt   DateTime     @default(now())
   permissions Permission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Role {

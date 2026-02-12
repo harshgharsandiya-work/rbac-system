@@ -1,184 +1,206 @@
 const bcrypt = require("bcryptjs");
 const prisma = require("../src/config/prisma");
-
-const orgId = "f89da722-1b24-47d8-8c62-a971a50a01b4";
+const { hashPassword } = require("../src/auth/password");
 
 async function main() {
-    //organisation
-    const org = await prisma.organisation.upsert({
-        where: {
-            id: orgId,
-        },
-        update: {},
-        create: {
-            id: orgId,
-            name: "Acme Inc",
-        },
-    });
-
-    //user
-    const hashedAdminPassword = await bcrypt.hash("admin@123", 10);
-    const hashedUserPassword = await bcrypt.hash("user@123", 10);
-
-    const adminUser = await prisma.user.upsert({
-        where: {
-            email: "admin@acme.com",
-        },
-        update: {},
-        create: {
-            email: "admin@acme.com",
-            password: hashedAdminPassword,
-        },
-    });
-
-    const normalUser = await prisma.user.upsert({
-        where: {
-            email: "user@acme.com",
-        },
-        update: {},
-        create: {
-            email: "user@acme.com",
-            password: hashedUserPassword,
-        },
-    });
-
-    //roles
-    const adminRole = await prisma.role.upsert({
-        where: {
-            name_organisationId: {
-                name: "ADMIN",
-                organisationId: org.id,
-            },
-        },
-
-        update: {},
-        create: {
-            name: "ADMIN",
-            organisationId: org.id,
-        },
-    });
-
-    const memberRole = await prisma.role.upsert({
-        where: {
-            name_organisationId: {
-                name: "MEMBER",
-                organisationId: org.id,
-            },
-        },
-        update: {},
-        create: {
-            name: "MEMBER",
-            organisationId: org.id,
-        },
-    });
-
-    //permission
-    const permissionsData = [
-        { key: "user:create", organisationId: org.id },
-        { key: "user:read", organisationId: org.id },
-        { key: "project:create", organisationId: org.id },
-        { key: "project:read", organisationId: org.id },
+    // Sample organizations
+    const organisationsData = [
+        { id: "f89da722-1b24-47d8-8c62-a971a50a01b4", name: "Acme Inc" },
+        { id: "a12b3456-7c89-4d01-2345-6789abcdef01", name: "Beta Corp" },
     ];
 
-    const permissionRecords = {};
-
-    for (const permission of permissionsData) {
-        const record = await prisma.permission.upsert({
-            where: {
-                key_organisationId: {
-                    key: permission.key,
-                    organisationId: permission.organisationId,
-                },
-            },
+    const organisations = [];
+    for (const orgData of organisationsData) {
+        const org = await prisma.organisation.upsert({
+            where: { id: orgData.id },
             update: {},
             create: {
-                key: permission.key,
-                organisationId: permission.organisationId,
+                id: orgData.id,
+                name: orgData.name,
             },
         });
-
-        permissionRecords[permission.key] = record;
+        organisations.push(org);
     }
 
-    const allPermissions = Object.values(permissionRecords);
+    // Sample users
+    const usersData = [
+        { email: "admin@acme.com", password: "admin@123" },
+        { email: "user@acme.com", password: "user@123" },
+        { email: "admin@beta.com", password: "admin@123" },
+        { email: "user@beta.com", password: "user@123" },
+    ];
 
-    // role-permission
-    //admin
-    await Promise.all(
-        allPermissions.map((permission) =>
-            prisma.rolePermission.upsert({
+    const users = [];
+    for (const userData of usersData) {
+        const hashedPassword = await hashPassword(userData.password);
+        const user = await prisma.user.upsert({
+            where: { email: userData.email },
+            update: {},
+            create: {
+                email: userData.email,
+                password: hashedPassword,
+            },
+        });
+        users.push(user);
+    }
+
+    // Sample roles per org
+    const rolesData = [
+        { name: "ADMIN" },
+        { name: "MEMBER" },
+        { name: "GUEST" },
+    ];
+
+    const orgRolesMap = {};
+
+    for (const org of organisations) {
+        orgRolesMap[org.id] = {};
+        for (const roleData of rolesData) {
+            const role = await prisma.role.upsert({
                 where: {
-                    roleId_permissionId: {
-                        roleId: adminRole.id,
-                        permissionId: permission.id,
+                    name_organisationId: {
+                        name: roleData.name,
+                        organisationId: org.id,
                     },
                 },
                 update: {},
                 create: {
-                    roleId: adminRole.id,
-                    permissionId: permission.id,
+                    name: roleData.name,
+                    organisationId: org.id,
                 },
-            }),
-        ),
-    );
+            });
+            orgRolesMap[org.id][roleData.name] = role;
+        }
+    }
 
-    //member
-    const readPermissions = allPermissions.filter((p) =>
-        p.key.endsWith(":read"),
-    );
+    // Sample permissions
+    const permissionsData = [
+        "user:create",
+        "user:read",
+        "project:create",
+        "project:read",
+        "project:update",
+    ];
 
-    await Promise.all(
-        readPermissions.map((permission) =>
-            prisma.rolePermission.upsert({
+    const orgPermissionsMap = {};
+
+    for (const org of organisations) {
+        orgPermissionsMap[org.id] = {};
+        for (const key of permissionsData) {
+            const permission = await prisma.permission.upsert({
                 where: {
-                    roleId_permissionId: {
-                        roleId: memberRole.id,
-                        permissionId: permission.id,
+                    key_organisationId: {
+                        key,
+                        organisationId: org.id,
                     },
                 },
                 update: {},
                 create: {
-                    roleId: memberRole.id,
-                    permissionId: permission.id,
+                    key,
+                    organisationId: org.id,
                 },
-            }),
-        ),
-    );
+            });
+            orgPermissionsMap[org.id][key] = permission;
+        }
+    }
 
-    // membership
-    //admin
-    await prisma.memberShip.upsert({
-        where: {
-            userId_organisationId_roleId: {
-                userId: adminUser.id,
-                organisationId: org.id,
-                roleId: adminRole.id,
-            },
-        },
-        update: {},
-        create: {
-            userId: adminUser.id,
-            organisationId: org.id,
-            roleId: adminRole.id,
-        },
-    });
+    // Assign permissions to roles
+    for (const org of organisations) {
+        const allPermissions = Object.values(orgPermissionsMap[org.id]);
 
-    //member
-    await prisma.memberShip.upsert({
-        where: {
-            userId_organisationId_roleId: {
-                userId: normalUser.id,
-                organisationId: org.id,
-                roleId: memberRole.id,
-            },
+        // ADMIN gets all permissions
+        await Promise.all(
+            allPermissions.map((permission) =>
+                prisma.rolePermission.upsert({
+                    where: {
+                        roleId_permissionId: {
+                            roleId: orgRolesMap[org.id]["ADMIN"].id,
+                            permissionId: permission.id,
+                        },
+                    },
+                    update: {},
+                    create: {
+                        roleId: orgRolesMap[org.id]["ADMIN"].id,
+                        permissionId: permission.id,
+                    },
+                }),
+            ),
+        );
+
+        // MEMBER gets read-only permissions
+        const readPermissions = allPermissions.filter((p) =>
+            p.key.endsWith(":read"),
+        );
+
+        await Promise.all(
+            readPermissions.map((permission) =>
+                prisma.rolePermission.upsert({
+                    where: {
+                        roleId_permissionId: {
+                            roleId: orgRolesMap[org.id]["MEMBER"].id,
+                            permissionId: permission.id,
+                        },
+                    },
+                    update: {},
+                    create: {
+                        roleId: orgRolesMap[org.id]["MEMBER"].id,
+                        permissionId: permission.id,
+                    },
+                }),
+            ),
+        );
+    }
+
+    // Memberships (users can have multiple roles in an org)
+    const membershipsData = [
+        {
+            userEmail: "admin@acme.com",
+            orgId: "f89da722-1b24-47d8-8c62-a971a50a01b4",
+            roles: ["ADMIN", "MEMBER"],
         },
-        update: {},
-        create: {
-            userId: normalUser.id,
-            organisationId: org.id,
-            roleId: memberRole.id,
+        {
+            userEmail: "user@acme.com",
+            orgId: "f89da722-1b24-47d8-8c62-a971a50a01b4",
+            roles: ["MEMBER"],
         },
-    });
+        {
+            userEmail: "admin@beta.com",
+            orgId: "a12b3456-7c89-4d01-2345-6789abcdef01",
+            roles: ["ADMIN", "GUEST"],
+        },
+        {
+            userEmail: "user@beta.com",
+            orgId: "a12b3456-7c89-4d01-2345-6789abcdef01",
+            roles: ["MEMBER", "GUEST"],
+        },
+    ];
+
+    for (const membership of membershipsData) {
+        const user = users.find((u) => u.email === membership.userEmail);
+        const roles = membership.roles.map(
+            (roleName) => orgRolesMap[membership.orgId][roleName],
+        );
+
+        for (const role of roles) {
+            await prisma.memberShip.upsert({
+                where: {
+                    userId_organisationId_roleId: {
+                        userId: user.id,
+                        organisationId: membership.orgId,
+                        roleId: role.id,
+                    },
+                },
+                update: {},
+                create: {
+                    userId: user.id,
+                    organisationId: membership.orgId,
+                    roleId: role.id,
+                },
+            });
+        }
+    }
+
+    console.log("✅ Seed complete!");
 }
 
 main()
