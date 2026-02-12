@@ -7,8 +7,8 @@ const { authenticate } = require("./auth/authMiddleware");
 const demoRoutes = require("./routes/demo.routes");
 const authRoutes = require("./routes/auth.routes");
 const permissionsRoutes = require("./routes/permissions.routes");
-const orgRoutes = require("./routes/org.routes");
 const rolesRoutes = require("./routes/roles.routes");
+const userRoutes = require("./routes/user.routes");
 
 const app = express();
 
@@ -30,7 +30,7 @@ app.get("/", (req, res) => {
 app.use("/api", demoRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/permissions", permissionsRoutes);
-app.use("/api/org", orgRoutes);
 app.use("/api/roles", rolesRoutes);
+app.use("/api/users", userRoutes);
 
 module.exports = app;
