@@ -1,3 +1,4 @@
+const cors = require("cors");
 const express = require("express");
 
 const { requirePermission } = require("./rbac/requirePermission");
@@ -13,6 +14,12 @@ const inviteRoutes = require("./routes/invite.routes");
 
 const app = express();
 
+app.use(
+    cors({
+        origin: process.env.FRONTEND_URL,
+        credentials: true,
+    }),
+);
 app.use(express.json());
 
 app.post(

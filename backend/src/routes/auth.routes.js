@@ -4,6 +4,7 @@ const { signToken } = require("../auth/token");
 const prisma = require("../config/prisma");
 const { hashPassword, verifyPassword } = require("../auth/password");
 const { authenticate } = require("../auth/authMiddleware");
+const { getEffectivePermissions } = require("../rbac/getEffectivePermissions");
 
 const router = express.Router();
 
@@ -156,7 +157,19 @@ router.post("/login", async (req, res) => {
         role: m.role.name,
     }));
 
-    res.json({ token, organisations, activeOrganisation: defaultOrg });
+    const effectivePermissions = await getEffectivePermissions(
+        user.id,
+        defaultOrg.id,
+    );
+
+    res.json({
+        email: user.email,
+        token,
+        organisationId: defaultOrg.id,
+        organisationName: defaultOrg.name,
+        roles: effectivePermissions.roles,
+        permissions: effectivePermissions.permissions,
+    });
 });
 
 // switch organisation
