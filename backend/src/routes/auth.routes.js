@@ -151,7 +151,7 @@ router.post("/login", async (req, res) => {
     });
 
     const organisations = user.memberShips.map((m) => ({
-        id: m.id,
+        organisationsId: m.organisation.id,
         name: m.organisation.name,
         role: m.role.name,
     }));

@@ -41,7 +41,7 @@ router.post(
             });
 
             if (role) {
-                await prisma.memberShip.upsert({
+                const d1 = await prisma.memberShip.upsert({
                     where: {
                         userId_organisationId_roleId: {
                             userId: user.id,
@@ -86,7 +86,7 @@ router.get("/me", authenticate, async (req, res) => {
     });
 });
 
-//read user
+//read all user
 router.get(
     "/",
     authenticate,
@@ -134,6 +134,24 @@ router.patch(
         const { roleNames } = req.body;
         const { organisationId } = req.user;
 
+        if (roleNames.includes("OWNER")) {
+            const existingOwner = await prisma.memberShip.findFirst({
+                where: {
+                    organisationId,
+                    role: {
+                        name: "OWNER",
+                    },
+                },
+                include: { user: true },
+            });
+
+            if (existingOwner && existingOwner.userId !== userId) {
+                return res.status(400).json({
+                    message: "Organisation aldready has owner",
+                });
+            }
+        }
+
         await prisma.memberShip.deleteMany({
             where: { userId, organisationId },
         });
@@ -171,6 +189,27 @@ router.delete(
     async (req, res) => {
         const { userId } = req.params;
         const { organisationId } = req.user;
+
+        const ownerRole = await prisma.role.findFirst({
+            where: {
+                organisationId,
+                name: "OWNER",
+            },
+        });
+
+        const isOwner = await prisma.memberShip.findFirst({
+            where: {
+                organisationId,
+                userId,
+                roleId: ownerRole.id,
+            },
+        });
+
+        if (isOwner) {
+            return res.status(400).json({
+                message: "Cannot remove OWNER from org",
+            });
+        }
 
         await prisma.memberShip.deleteMany({
             where: {
