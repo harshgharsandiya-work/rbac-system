@@ -13,8 +13,13 @@ router.post(
     requirePermission("role:create"),
     async (req, res) => {
         const { name, permissions } = req.body;
-
         const { organisationId, organisationName } = req.user;
+
+        if (!Array.isArray(permissions)) {
+            return res.status(400).json({
+                message: "You must provide permission array",
+            });
+        }
 
         const isRoleExist = await prisma.role.findUnique({
             where: {
@@ -30,38 +35,34 @@ router.post(
             });
         }
 
-        const role = await prisma.role.create({
-            data: {
-                name,
-                organisationId,
-            },
-        });
-
-        if (!Array.isArray(permissions)) {
-            return res.status(400).json({
-                message: "You must provide permission array",
-            });
-        }
-
-        for (const key of permissions) {
-            const permission = await prisma.permission.findUnique({
-                where: {
-                    key_organisationId: {
-                        key,
-                        organisationId,
-                    },
+        await prisma.$transaction(async (tx) => {
+            const role = await tx.role.create({
+                data: {
+                    name,
+                    organisationId,
                 },
             });
 
-            if (permission) {
-                await prisma.rolePermission.create({
-                    data: {
-                        roleId: role.id,
-                        permissionId: permission.id,
+            for (const key of permissions) {
+                const permission = await tx.permission.findUnique({
+                    where: {
+                        key_organisationId: {
+                            key,
+                            organisationId,
+                        },
                     },
                 });
+
+                if (permission) {
+                    await tx.rolePermission.create({
+                        data: {
+                            roleId: role.id,
+                            permissionId: permission.id,
+                        },
+                    });
+                }
             }
-        }
+        });
 
         res.status(200).json({
             message: `${role.name} was created ${organisationName}`,
