@@ -57,13 +57,13 @@ router.post("/accept", async (req, res) => {
     });
 
     if (!invite || invite.accepted) {
-        return res.json(400).json({
+        return res.status(400).json({
             message: "Invalid invite",
         });
     }
 
     if (invite.expiresAt < new Date()) {
-        return res.json(400).json({
+        return res.status(400).json({
             message: "Token expires",
         });
     }
