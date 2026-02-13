@@ -17,11 +17,12 @@ model User {
 }
 
 model Organisation {
-  id          String       @id @default(uuid())
-  name        String
-  memberShips MemberShip[]
-  roles       Role[]
-  permissions Permission[]
+  id                  String               @id @default(uuid())
+  name                String
+  memberShips         MemberShip[]
+  roles               Role[]
+  permissions         Permission[]
+  organisationInvites OrganisationInvite[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -73,4 +74,20 @@ model RolePermission {
   permission Permission @relation(fields: [permissionId], references: [id])
 
   @@id([roleId, permissionId])
+}
+
+model OrganisationInvite {
+  id             String   @id @default(uuid())
+  email          String
+  organisationId String
+  roleNames      String[]
+  token          String   @unique
+  expiresAt      DateTime
+  accepted       Boolean  @default(false)
+
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([email, organisationId])
 }

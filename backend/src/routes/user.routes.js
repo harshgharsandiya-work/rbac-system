@@ -211,11 +211,40 @@ router.delete(
             });
         }
 
-        await prisma.memberShip.deleteMany({
+        const userExist = await prisma.memberShip.findFirst({
             where: {
                 userId,
                 organisationId,
             },
+            select: {
+                user: {
+                    select: {
+                        email: true,
+                    },
+                },
+            },
+        });
+
+        if (!userExist) {
+            return res.status(404).json({
+                message: "User not found",
+            });
+        }
+
+        await prisma.$transaction(async (tx) => {
+            await tx.organisationInvite.deleteMany({
+                where: {
+                    email: userExist.user.email,
+                    organisationId,
+                },
+            });
+
+            await tx.memberShip.deleteMany({
+                where: {
+                    userId,
+                    organisationId,
+                },
+            });
         });
 
         res.json({ message: "User removed from organisation" });
