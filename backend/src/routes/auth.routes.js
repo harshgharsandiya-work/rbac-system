@@ -65,6 +65,14 @@ router.post("/verify-email", async (req, res) => {
         where: {
             email,
         },
+        include: {
+            memberShips: {
+                include: {
+                    organisation: true,
+                    role: true,
+                },
+            },
+        },
     });
 
     if (!user) {
@@ -82,6 +90,112 @@ router.post("/verify-email", async (req, res) => {
                 isActive: true,
             },
         });
+
+        //if user has no organisation --> create default one
+        if (!user.memberShips.length) {
+            const organisation = await prisma.organisation.create({
+                data: {
+                    name: `${email.split("@")[0]}'s Workspace`,
+                    slug: `${email.replace(/[.@]/g, "-")}`,
+                },
+            });
+
+            //create owner role
+            const ownerRole = await prisma.role.create({
+                data: {
+                    organisationId: organisation.id,
+                    name: "OWNER",
+                    isSystem: true,
+                },
+            });
+
+            //set of default permission
+            const defaultPermissions = [
+                {
+                    key: "user:create",
+                    description:
+                        "Allows creating new users in the organisation",
+                },
+                {
+                    key: "user:read",
+                    description: "Allows viewing users in the organisation",
+                },
+                {
+                    key: "user:update",
+                    description: "Allows updating user information",
+                },
+                {
+                    key: "user:delete",
+                    description: "Allows deleting users",
+                },
+                {
+                    key: "role:create",
+                    description: "Allows creating new roles",
+                },
+                {
+                    key: "role:read",
+                    description: "Allows viewing roles",
+                },
+                {
+                    key: "role:update",
+                    description: "Allows updating roles",
+                },
+                {
+                    key: "role:delete",
+                    description: "Allows deleting roles",
+                },
+                {
+                    key: "permission:create",
+                    description: "Allows creating permissions",
+                },
+                {
+                    key: "permission:read",
+                    description: "Allows viewing permissions",
+                },
+                {
+                    key: "permission:update",
+                    description: "Allows updating permissions",
+                },
+                {
+                    key: "permission:delete",
+                    description: "Allows deleting permissions",
+                },
+            ];
+
+            for (const perm of defaultPermissions) {
+                const permission = await prisma.permission.upsert({
+                    where: {
+                        key_organisationId: {
+                            key: perm.key,
+                            organisationId: organisation.id,
+                        },
+                    },
+                    update: {},
+                    create: {
+                        key: perm.key,
+                        organisationId: organisation.id,
+                        description: perm.description,
+                    },
+                });
+
+                await prisma.rolePermission.create({
+                    data: {
+                        roleId: ownerRole.id,
+                        permissionId: permission.id,
+                    },
+                });
+            }
+
+            // assign owner membership
+            await prisma.memberShip.create({
+                data: {
+                    userId: user.id,
+                    organisationId: organisation.id,
+                    roleId: ownerRole.id,
+                    isOwner: true,
+                },
+            });
+        }
 
         res.json({
             message: "Mail successfully verified",
@@ -142,121 +256,41 @@ router.post("/login", async (req, res) => {
         });
     }
 
-    // //if user has no organisation --> create default one
-    // if (!user.memberShips.length) {
-    //     const organisation = await prisma.organisation.create({
-    //         data: {
-    //             name: `${email.split("@")[0]}'s Workspace`,
-    //         },
-    //     });
+    user = await prisma.user.findUnique({
+        where: {
+            id: user.id,
+        },
+        include: {
+            memberShips: {
+                include: {
+                    organisation: true,
+                    role: true,
+                },
+            },
+        },
+    });
 
-    //     //create owner role
-    //     const ownerRole = await prisma.role.create({
-    //         data: {
-    //             organisationId: organisation.id,
-    //             name: "OWNER",
-    //         },
-    //     });
-
-    //     //set of default permission
-    //     const defaultPermissions = [
-    //         "user:create",
-    //         "user:read",
-    //         "user:update",
-    //         "user:delete",
-    //         "role:create",
-    //         "role:read",
-    //         "role:update",
-    //         "role:delete",
-    //         "permission:create",
-    //         "permission:read",
-    //         "permission:update",
-    //         "permission:delete",
-    //     ];
-
-    //     for (const key of defaultPermissions) {
-    //         const permission = await prisma.permission.upsert({
-    //             where: {
-    //                 key_organisationId: {
-    //                     key,
-    //                     organisationId: organisation.id,
-    //                 },
-    //             },
-    //             update: {},
-    //             create: {
-    //                 key,
-    //                 organisationId: organisation.id,
-    //             },
-    //         });
-
-    //         await prisma.rolePermission.create({
-    //             data: {
-    //                 roleId: ownerRole.id,
-    //                 permissionId: permission.id,
-    //             },
-    //         });
-    //     }
-
-    //     // assign owner membership
-    //     await prisma.memberShip.create({
-    //         data: {
-    //             userId: user.id,
-    //             organisationId: organisation.id,
-    //             roleId: ownerRole.id,
-    //         },
-    //     });
-
-    //     user = await prisma.user.findUnique({
-    //         where: {
-    //             id: user.id,
-    //         },
-    //         include: {
-    //             memberShips: {
-    //                 include: {
-    //                     organisation: true,
-    //                     role: true,
-    //                 },
-    //             },
-    //         },
-    //     });
-    // }
-
-    // //pick default org (logic: first org)
-    // const defaultOrg = user.memberShips[0].organisation;
-
-    // const token = signToken({
-    //     userId: user.id,
-    //     organisationId: defaultOrg.id,
-    //     organisationName: defaultOrg.name,
-    // });
-
-    // const organisations = user.memberShips.map((m) => ({
-    //     organisationsId: m.organisation.id,
-    //     name: m.organisation.name,
-    //     role: m.role.name,
-    // }));
-
-    // const effectivePermissions = await getEffectivePermissions(
-    //     user.id,
-    //     defaultOrg.id,
-    // );
-
-    // res.json({
-    //     email: user.email,
-    //     token,
-    //     organisationId: defaultOrg.id,
-    //     organisationName: defaultOrg.name,
-    //     roles: effectivePermissions.roles,
-    //     permissions: effectivePermissions.permissions,
-    // });
+    //pick default org (logic: first org)
+    const defaultOrg = user.memberShips[0].organisation;
 
     const token = signToken({
         userId: user.id,
+        organisationId: defaultOrg.id,
+        organisationName: defaultOrg.name,
     });
 
+    const effectivePermissions = await getEffectivePermissions(
+        user.id,
+        defaultOrg.id,
+    );
+
     res.json({
-        user,
+        email: user.email,
         token,
+        organisationId: defaultOrg.id,
+        organisationName: defaultOrg.name,
+        roles: effectivePermissions.roles,
+        permissions: effectivePermissions.permissions,
     });
 });
 
