@@ -7,31 +7,63 @@ datasource db {
 }
 
 model User {
-  id          String       @id @default(uuid())
-  email       String       @unique
-  password    String
+  id           String  @id @default(cuid())
+  email        String  @unique
+  passwordHash String
+  isActive     Boolean @default(true)
+
   memberShips MemberShip[]
+  sessions    Session[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([email])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  userAgent String?
+  ipAddress String?
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model Organisation {
-  id                  String               @id @default(uuid())
-  name                String
+  id       String  @id @default(cuid())
+  name     String
+  slug     String  @unique
+  isActive Boolean @default(true)
+
   memberShips         MemberShip[]
   roles               Role[]
   permissions         Permission[]
   organisationInvites OrganisationInvite[]
+  apiKeys             ApiKey[]
+  subscription        Subscription?
+  featureFlags        FeatureFlag[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([slug])
 }
 
 model Role {
-  id             String  @id @default(uuid())
+  id             String  @id @default(cuid())
   name           String
-  organisationId String?
+  organisationId String
+  isSystem       Boolean @default(false)
 
   organisation Organisation? @relation(fields: [organisationId], references: [id])
 
@@ -42,28 +74,17 @@ model Role {
 }
 
 model Permission {
-  id             String  @id @default(uuid())
+  id             String  @id @default(cuid())
   key            String
-  organisationId String?
+  description    String?
+  organisationId String
 
   organisation Organisation? @relation(fields: [organisationId], references: [id])
 
   rolePermissions RolePermission[]
 
   @@unique([key, organisationId])
-}
-
-model MemberShip {
-  id             String @id @default(uuid())
-  userId         String
-  organisationId String
-  roleId         String
-
-  user         User         @relation(fields: [userId], references: [id])
-  organisation Organisation @relation(fields: [organisationId], references: [id])
-  role         Role         @relation(fields: [roleId], references: [id])
-
-  @@unique([userId, organisationId, roleId])
+  @@index([organisationId])
 }
 
 model RolePermission {
@@ -76,12 +97,29 @@ model RolePermission {
   @@id([roleId, permissionId])
 }
 
+model MemberShip {
+  id             String  @id @default(cuid())
+  userId         String
+  organisationId String
+  roleId         String
+  isOwner        Boolean @default(false)
+
+  user         User         @relation(fields: [userId], references: [id])
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+  role         Role         @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, organisationId, roleId])
+  @@index([userId])
+  @@index([organisationId])
+  @@index([roleId])
+}
+
 model OrganisationInvite {
-  id             String   @id @default(uuid())
+  id             String   @id @default(cuid())
   email          String
   organisationId String
-  roleNames      String[]
-  token          String   @unique
+  roleIds        String[]
+  tokenHash      String   @unique
   expiresAt      DateTime
   accepted       Boolean  @default(false)
 
@@ -90,4 +128,45 @@ model OrganisationInvite {
   createdAt DateTime @default(now())
 
   @@unique([email, organisationId])
+  @@index([organisationId])
+}
+
+model ApiKey {
+  id             String    @id @default(cuid())
+  organisationId String
+  name           String
+  keyHash        String    @unique
+  lastUsedAt     DateTime?
+  revoked        Boolean   @default(false)
+
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+
+  createdAt DateTime  @default(now())
+  expiresAt DateTime?
+}
+
+model Subscription {
+  id               String    @id @default(cuid())
+  organisationId   String    @unique
+  plan             String
+  status           String
+  stripeCustomerId String?   @unique
+  stripeSubId      String?   @unique
+  currentPeriodEnd DateTime?
+
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FeatureFlag {
+  id             String  @id @default(cuid())
+  organisationId String
+  key            String
+  enabled        Boolean @default(false)
+
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+
+  @@unique([organisationId, key])
 }
