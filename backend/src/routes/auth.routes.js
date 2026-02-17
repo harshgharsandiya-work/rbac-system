@@ -54,6 +54,7 @@ router.post("/register", async (req, res) => {
     res.json({
         message: "Verification email sent",
         email: newUser.email,
+        token,
     });
 });
 

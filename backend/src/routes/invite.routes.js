@@ -4,8 +4,11 @@ const crypto = require("crypto");
 const { authenticate } = require("../auth/authMiddleware");
 const { requirePermission } = require("../rbac/requirePermission");
 const prisma = require("../config/prisma");
+const { sendInviteEmail } = require("../service/email.service");
 
 const router = express.Router();
+
+const INVITE_EXPIRY_HOURS = 3;
 
 //Create invite for user
 router.post(
@@ -13,11 +16,30 @@ router.post(
     authenticate,
     requirePermission("user:create"),
     async (req, res) => {
-        const { email, roleNames } = req.body;
-        const { organisationId } = req.user;
+        const { email, roleIds } = req.body;
+        const { organisationId, organisationName } = req.user;
+
+        const user = await prisma.user.findUnique({
+            where: {
+                email,
+            },
+        });
+
+        if (!user) {
+            return res.status(404).json({
+                message: "User not found",
+            });
+        }
 
         const token = crypto.randomBytes(32).toString("hex");
-        const expiresAt = new Date(Date.now() + 3 * 60 * 60 * 1000); // 3 hours
+        const tokenHash = crypto
+            .createHash("sha256")
+            .update(token)
+            .digest("hex");
+
+        const expiresAt = new Date(
+            Date.now() + INVITE_EXPIRY_HOURS * 60 * 60 * 1000,
+        );
 
         const invite = await prisma.organisationInvite.upsert({
             where: {
@@ -27,22 +49,23 @@ router.post(
                 },
             },
             update: {
-                roleNames,
-                token,
+                roleIds,
+                tokenHash,
                 expiresAt,
             },
             create: {
                 email,
                 organisationId,
-                roleNames,
-                token,
+                roleIds,
+                tokenHash,
                 expiresAt,
             },
         });
 
+        await sendInviteEmail(email, organisationName, token);
+
         res.status(201).json({
             message: "Invite created",
-            //TODO: send via mail
             inviteToken: token,
         });
     },
@@ -52,8 +75,14 @@ router.post(
 router.post("/accept", async (req, res) => {
     const { token } = req.body;
 
+    if (!token) {
+        return res.status(400).json({ message: "Token required" });
+    }
+
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
     const invite = await prisma.organisationInvite.findUnique({
-        where: { token },
+        where: { tokenHash },
     });
 
     if (!invite || invite.accepted) {
@@ -74,6 +103,8 @@ router.post("/accept", async (req, res) => {
         },
     });
 
+    console.log(user);
+
     if (!user) {
         return res.status(400).json({
             message: "User not registered",
@@ -81,13 +112,10 @@ router.post("/accept", async (req, res) => {
     }
 
     await prisma.$transaction(async (tx) => {
-        for (const roleName of invite.roleNames) {
+        for (const roleId of invite.roleIds) {
             const role = await tx.role.findUnique({
                 where: {
-                    name_organisationId: {
-                        name: roleName,
-                        organisationId: invite.organisationId,
-                    },
+                    id: roleId,
                 },
             });
 
@@ -111,7 +139,7 @@ router.post("/accept", async (req, res) => {
         }
 
         await tx.organisationInvite.update({
-            where: { token },
+            where: { tokenHash },
             data: { accepted: true },
         });
     });

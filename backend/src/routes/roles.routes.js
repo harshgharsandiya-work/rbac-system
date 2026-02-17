@@ -35,6 +35,8 @@ router.post(
             });
         }
 
+        let createdRole;
+
         await prisma.$transaction(async (tx) => {
             const role = await tx.role.create({
                 data: {
@@ -42,6 +44,8 @@ router.post(
                     organisationId,
                 },
             });
+
+            createdRole = role;
 
             for (const key of permissions) {
                 const permission = await tx.permission.findUnique({
@@ -65,8 +69,8 @@ router.post(
         });
 
         res.status(200).json({
-            message: `${role.name} was created ${organisationName}`,
-            role,
+            message: `${createdRole.name} was created ${organisationName}`,
+            createdRole,
         });
     },
 );
@@ -248,7 +252,7 @@ router.delete(
                 });
             });
             res.json({
-                message: `Role is delete`,
+                message: `Role is deleted`,
             });
         } catch (error) {
             if (error.message === "ROLE_NOT_FOUND") {
