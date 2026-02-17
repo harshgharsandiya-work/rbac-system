@@ -12,58 +12,60 @@ const router = express.Router();
  * able to add multiple roles in same organisation
  * using roleNames Array: ["Role1", "Role2"]
  */
-router.post(
-    "/",
-    authenticate,
-    requirePermission("user:create"),
-    async (req, res) => {
-        const { email, roleNames } = req.body;
-        const { organisationId } = req.user;
+// router.post(
+//     "/",
+//     authenticate,
+//     requirePermission("user:create"),
+//     async (req, res) => {
+//         const { email, roleNames } = req.body;
+//         const { organisationId } = req.user;
 
-        const user = await prisma.user.findUnique({
-            where: {
-                email,
-            },
-        });
+//         const user = await prisma.user.findUnique({
+//             where: {
+//                 email,
+//             },
+//         });
 
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
-        }
+//         if (!user) {
+//             return res.status(404).json({ message: "User not found" });
+//         }
 
-        for (const roleName of roleNames) {
-            const role = await prisma.role.findUnique({
-                where: {
-                    name_organisationId: {
-                        name: roleName,
-                        organisationId,
-                    },
-                },
-            });
+//         for (const roleName of roleNames) {
+//             const role = await prisma.role.findUnique({
+//                 where: {
+//                     name_organisationId: {
+//                         name: roleName,
+//                         organisationId,
+//                     },
+//                 },
+//             });
 
-            if (role) {
-                const d1 = await prisma.memberShip.upsert({
-                    where: {
-                        userId_organisationId_roleId: {
-                            userId: user.id,
-                            organisationId,
-                            roleId: role.id,
-                        },
-                    },
-                    update: {},
-                    create: {
-                        userId: user.id,
-                        organisationId,
-                        roleId: role.id,
-                    },
-                });
-            }
-        }
+//             if (role) {
+//                 const d1 = await prisma.memberShip.upsert({
+//                     where: {
+//                         userId_organisationId_roleId: {
+//                             userId: user.id,
+//                             organisationId,
+//                             roleId: role.id,
+//                         },
+//                     },
+//                     update: {},
+//                     create: {
+//                         userId: user.id,
+//                         organisationId,
+//                         roleId: role.id,
+//                     },
+//                 });
+//             }
+//         }
 
-        res.json({ message: "User added to organisation" });
-    },
-);
+//         res.json({ message: "User added to organisation" });
+//     },
+// );
 
-//get user effective permission + roles
+/**
+ * get user effective permission + roles
+ */
 router.get("/me", authenticate, async (req, res) => {
     const { id, organisationId, organisationName } = req.user;
 
@@ -131,51 +133,58 @@ router.patch(
     requirePermission("user:update"),
     async (req, res) => {
         const { userId } = req.params;
-        const { roleNames } = req.body;
+        const { roleIds } = req.body;
         const { organisationId } = req.user;
 
-        if (roleNames.includes("OWNER")) {
+        if (!Array.isArray(roleIds) || roleIds.length === 0) {
+            return res.status(400).json({
+                message: "roleIds must be a non-empty array",
+            });
+        }
+
+        const roles = await prisma.role.findMany({
+            where: {
+                id: { in: roleIds },
+                organisationId,
+            },
+        });
+
+        if (roleIds.length !== roles.length) {
+            return res.status(400).json({
+                message: "One or more roles are invalid",
+            });
+        }
+
+        const ownerRole = roles.find((r) => r.name === "OWNER");
+
+        if (ownerRole) {
             const existingOwner = await prisma.memberShip.findFirst({
                 where: {
                     organisationId,
-                    role: {
-                        name: "OWNER",
-                    },
+                    roleId: ownerRole.id,
                 },
-                include: { user: true },
             });
 
             if (existingOwner && existingOwner.userId !== userId) {
                 return res.status(400).json({
-                    message: "Organisation aldready has owner",
+                    message: "Organisation already has an owner",
                 });
             }
         }
 
-        await prisma.memberShip.deleteMany({
-            where: { userId, organisationId },
-        });
+        await prisma.$transaction([
+            prisma.memberShip.deleteMany({
+                where: { userId, organisationId },
+            }),
 
-        for (const roleName of roleNames) {
-            const role = await prisma.role.findUnique({
-                where: {
-                    name_organisationId: {
-                        name: roleName,
-                        organisationId,
-                    },
-                },
-            });
-
-            if (role) {
-                await prisma.memberShip.create({
-                    data: {
-                        userId,
-                        organisationId,
-                        roleId: role.id,
-                    },
-                });
-            }
-        }
+            prisma.memberShip.createMany({
+                data: roleIds.map((roleId) => ({
+                    userId,
+                    organisationId,
+                    roleId,
+                })),
+            }),
+        ]);
 
         res.json({ message: "User roles updated" });
     },
@@ -188,35 +197,21 @@ router.delete(
     requirePermission("user:delete"),
     async (req, res) => {
         const { userId } = req.params;
-        const { organisationId } = req.user;
+        const { organisationId, id: currentUserId } = req.user;
 
-        const ownerRole = await prisma.role.findFirst({
-            where: {
-                organisationId,
-                name: "OWNER",
-            },
-        });
-
-        const isOwner = await prisma.memberShip.findFirst({
-            where: {
-                organisationId,
-                userId,
-                roleId: ownerRole.id,
-            },
-        });
-
-        if (isOwner) {
+        if (userId === currentUserId) {
             return res.status(400).json({
-                message: "Cannot remove OWNER from org",
+                message: "You cannot remove yourself from the organisation",
             });
         }
 
-        const userExist = await prisma.memberShip.findFirst({
+        const memberships = await prisma.memberShip.findMany({
             where: {
                 userId,
                 organisationId,
             },
-            select: {
+            include: {
+                role: true,
                 user: {
                     select: {
                         email: true,
@@ -225,27 +220,36 @@ router.delete(
             },
         });
 
-        if (!userExist) {
+        if (memberships.length === 0) {
             return res.status(404).json({
-                message: "User not found",
+                message: "User not found in organisation",
             });
         }
 
-        await prisma.$transaction(async (tx) => {
-            await tx.organisationInvite.deleteMany({
+        const hasOwnerRole = memberships.some((m) => m.role.name === "OWNER");
+
+        if (hasOwnerRole) {
+            return res.status(400).json({
+                message: "Cannot remove OWNER from organisation",
+            });
+        }
+
+        const email = memberships[0].user.email;
+
+        await prisma.$transaction([
+            prisma.organisationInvite.deleteMany({
                 where: {
-                    email: userExist.user.email,
+                    email,
                     organisationId,
                 },
-            });
-
-            await tx.memberShip.deleteMany({
+            }),
+            prisma.memberShip.deleteMany({
                 where: {
                     userId,
                     organisationId,
                 },
-            });
-        });
+            }),
+        ]);
 
         res.json({ message: "User removed from organisation" });
     },

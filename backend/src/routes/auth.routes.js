@@ -208,6 +208,7 @@ router.post("/verify-email", async (req, res) => {
 });
 
 // login
+//TODO: implement Sesssion
 router.post("/login", async (req, res) => {
     const { email, password } = req.body;
 
@@ -392,6 +393,8 @@ router.post("/reset-password-token", async (req, res) => {
         });
     }
 });
+
+//TODO: two factor
 
 // switch organisation
 router.post("/switch-org", authenticate, async (req, res) => {
