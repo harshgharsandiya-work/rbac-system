@@ -12,7 +12,7 @@ router.post(
     authenticate,
     requirePermission("permission:create"),
     async (req, res) => {
-        const { key } = req.body;
+        const { key, description } = req.body;
         const { organisationId } = req.user;
 
         const keyExist = await prisma.permission.findUnique({
@@ -34,6 +34,7 @@ router.post(
             data: {
                 key,
                 organisationId,
+                description,
             },
         });
 
@@ -65,7 +66,7 @@ router.patch(
     requirePermission("permission:update"),
     async (req, res) => {
         const { permissionId } = req.params;
-        const { key } = req.body;
+        const { key, description } = req.body;
         const { organisationId } = req.user;
 
         const permission = await prisma.permission.findFirst({
@@ -81,13 +82,44 @@ router.patch(
             });
         }
 
+        //dynamic update object
+        const updateData = {};
+
+        if (key !== undefined) {
+            const duplicateKey = await prisma.permission.findFirst({
+                where: {
+                    key,
+                    organisationId,
+                    NOT: {
+                        id: permissionId,
+                    },
+                },
+            });
+
+            if (duplicateKey) {
+                return res.status(409).json({
+                    message: "Permission key already exists",
+                });
+            }
+
+            updateData.key = key;
+        }
+
+        if (description !== undefined) {
+            updateData.description = description;
+        }
+
+        if (Object.keys(updateData).length === 0) {
+            return res.status(400).json({
+                message: "Nothing to update",
+            });
+        }
+
         const updated = await prisma.permission.update({
             where: {
                 id: permissionId,
             },
-            data: {
-                key,
-            },
+            data: updateData,
         });
 
         res.json({
