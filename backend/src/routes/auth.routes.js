@@ -409,7 +409,6 @@ router.post("/switch-org", authenticate, async (req, res) => {
     if (!membership) {
         return res.status(403).json({ message: "Not a member of this org" });
     }
-    membership.organisation.name;
 
     const token = signToken({
         userId: req.user.id,
