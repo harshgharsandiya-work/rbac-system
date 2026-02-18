@@ -189,6 +189,104 @@ router.delete(
 );
 
 /**
+ * get organisation
+ */
+router.get("/", authenticate, async (req, res) => {
+    const { organisationId } = req.user;
+
+    try {
+        const organisation = await prisma.organisation.findUnique({
+            where: {
+                id: organisationId,
+            },
+            include: {
+                roles: true,
+                permissions: true,
+            },
+        });
+
+        return res.json(organisation);
+    } catch (error) {
+        return res.status(400).json({
+            error: error.message,
+        });
+    }
+});
+
+/**
+ * get all organisation
+ */
+router.get("/all", authenticate, async (req, res) => {
+    try {
+        const organisation = await prisma.organisation.findMany({
+            select: {
+                id: true,
+                name: true,
+                slug: true,
+            },
+        });
+
+        return res.json(organisation);
+    } catch (error) {
+        return res.status(400).json({
+            error: error.message,
+        });
+    }
+});
+
+/**
+ * update organisation
+ */
+router.patch(
+    "/",
+    authenticate,
+    requirePermission("organisation:update"),
+    async (req, res) => {
+        const { name, slug } = req.body;
+        const { organisationId } = req.user;
+
+        try {
+            const organisation = await prisma.organisation.findUnique({
+                where: {
+                    id: organisationId,
+                },
+            });
+
+            if (slug && slug !== organisation.slug) {
+                const slugExist = await prisma.organisation.findUnique({
+                    where: {
+                        slug,
+                    },
+                });
+
+                if (slugExist) {
+                    return res.status(409).json({
+                        message: "Slug already in use",
+                    });
+                }
+            }
+
+            const updateData = {};
+            if (name !== undefined) updateData.name = name;
+            if (slug !== undefined) updateData.slug = slug;
+
+            const updatedOrganisation = await prisma.organisation.update({
+                where: {
+                    id: organisationId,
+                },
+                data: updateData,
+            });
+
+            return res.json(updatedOrganisation);
+        } catch (error) {
+            return res.status(400).json({
+                error: error.message,
+            });
+        }
+    },
+);
+
+/**
  * switch organisation
  */
 router.post("/switch", authenticate, async (req, res) => {
