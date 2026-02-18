@@ -431,8 +431,6 @@ router.post("/reset-password-token", async (req, res) => {
 router.post("/logout", authenticate, async (req, res) => {
     const { sessionId, id } = req.user;
 
-    console.log(sessionId);
-
     await prisma.session.update({
         where: { id: sessionId },
         data: {
@@ -453,33 +451,6 @@ router.post("/logout-all", authenticate, async (req, res) => {
     });
 
     res.json({ message: "Logged out from all devices" });
-});
-
-// switch organisation
-router.post("/switch-org", authenticate, async (req, res) => {
-    const { organisationId } = req.body;
-
-    const membership = await prisma.memberShip.findFirst({
-        where: {
-            userId: req.user.id,
-            organisationId,
-        },
-        include: {
-            organisation: true,
-        },
-    });
-
-    if (!membership) {
-        return res.status(403).json({ message: "Not a member of this org" });
-    }
-
-    const token = signToken({
-        userId: req.user.id,
-        organisationId,
-        organisationName: membership.organisation.name,
-    });
-
-    res.json({ token });
 });
 
 module.exports = router;

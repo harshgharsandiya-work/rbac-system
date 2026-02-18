@@ -11,6 +11,7 @@ const permissionsRoutes = require("./routes/permissions.routes");
 const rolesRoutes = require("./routes/roles.routes");
 const userRoutes = require("./routes/user.routes");
 const inviteRoutes = require("./routes/invite.routes");
+const organisationRoutes = require("./routes/organisation.routes");
 
 const app = express();
 
@@ -41,5 +42,6 @@ app.use("/api/permissions", permissionsRoutes);
 app.use("/api/roles", rolesRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/invite", inviteRoutes);
+app.use("/api/organisation", organisationRoutes);
 
 module.exports = app;
