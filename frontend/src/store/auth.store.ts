@@ -1,6 +1,7 @@
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { setAuthToken } from "@/lib/api/api";
 import { logoutUser } from "@/lib/api/auth";
-import { create } from "zustand";
 
 interface AuthState {
     email: string | null;
@@ -14,45 +15,50 @@ interface AuthState {
     logout: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-    email: null,
-    token: null,
-    roles: [],
-    permissions: [],
-    organisationId: null,
-    organisationName: null,
-
-    login: (data) => {
-        localStorage.setItem("token", data.token);
-        setAuthToken(data.token);
-
-        set({
-            email: data.email,
-            token: data.token,
-            roles: data.roles,
-            permissions: data.permissions,
-            organisationId: data.organisationId,
-            organisationName: data.organisationName,
-        });
-    },
-
-    logout: async () => {
-        try {
-            await logoutUser();
-        } catch (error) {
-            console.error("Logout API failed");
-        }
-
-        localStorage.removeItem("token");
-        setAuthToken(null);
-
-        set({
+export const useAuthStore = create<AuthState>()(
+    persist(
+        (set) => ({
             email: null,
             token: null,
             roles: [],
             permissions: [],
             organisationId: null,
             organisationName: null,
-        });
-    },
-}));
+
+            login: (data) => {
+                setAuthToken(data.token);
+
+                set({
+                    email: data.email,
+                    token: data.token,
+                    roles: data.roles,
+                    permissions: data.permissions,
+                    organisationId: data.organisationId,
+                    organisationName: data.organisationName,
+                });
+            },
+
+            logout: async () => {
+                try {
+                    await logoutUser();
+                } catch (error) {
+                    console.error("Logout API failed");
+                }
+
+                setAuthToken(null);
+
+                set({
+                    email: null,
+                    token: null,
+                    roles: [],
+                    permissions: [],
+                    organisationId: null,
+                    organisationName: null,
+                });
+            },
+        }),
+        {
+            name: "auth-storage", // key in localStorage
+        },
+    ),
+);

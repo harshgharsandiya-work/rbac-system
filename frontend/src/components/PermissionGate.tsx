@@ -1,5 +1,3 @@
-//to check if user has permission to access resources
-
 "use client";
 
 import { useHasPermission } from "@/lib/permission";
@@ -9,6 +7,7 @@ interface PermissionGateProps {
     children: any;
 }
 
+//to check if user has permission to access resources
 export default function PermissionGate({
     permission,
     children,
