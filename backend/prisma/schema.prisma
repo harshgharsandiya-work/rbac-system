@@ -57,6 +57,7 @@ model Session {
 
   createdAt DateTime @default(now())
 
+  @@unique([userId, userAgent, ipAddress])
   @@index([userId])
 }
 

@@ -13,6 +13,7 @@ const {
     createVerificationToken,
     verifyToken,
 } = require("../service/token.service");
+const { hashToken } = require("../utils/hash");
 
 const router = express.Router();
 
@@ -208,7 +209,6 @@ router.post("/verify-email", async (req, res) => {
 });
 
 // login
-//TODO: implement Sesssion
 router.post("/login", async (req, res) => {
     const { email, password } = req.body;
 
@@ -275,10 +275,41 @@ router.post("/login", async (req, res) => {
     //pick default org (logic: first org)
     const defaultOrg = user.memberShips[0].organisation;
 
+    //session based login
+    const sessionId = crypto.randomUUID();
     const token = signToken({
         userId: user.id,
         organisationId: defaultOrg.id,
         organisationName: defaultOrg.name,
+        sessionId,
+    });
+    const tokenHash = hashToken(token);
+
+    const sessionExpireAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await prisma.session.upsert({
+        where: {
+            userId_userAgent_ipAddress: {
+                userId: user.id,
+                userAgent: req.headers["user-agent"],
+                ipAddress: req.ip,
+            },
+        },
+        update: {
+            id: sessionId,
+            tokenHash,
+            revoked: false,
+            expiresAt: sessionExpireAt,
+        },
+        create: {
+            id: sessionId,
+            userId: user.id,
+            tokenHash,
+            revoked: false,
+            userAgent: req.headers["user-agent"],
+            ipAddress: req.ip,
+            expiresAt: sessionExpireAt,
+        },
     });
 
     const effectivePermissions = await getEffectivePermissions(
@@ -395,6 +426,34 @@ router.post("/reset-password-token", async (req, res) => {
 });
 
 //TODO: two factor
+
+//logout current device
+router.post("/logout", authenticate, async (req, res) => {
+    const { sessionId, id } = req.user;
+
+    console.log(sessionId);
+
+    await prisma.session.update({
+        where: { id: sessionId },
+        data: {
+            revoked: true,
+        },
+    });
+
+    return res.json({ message: "Logged out successfully" });
+});
+
+//logout all device
+router.post("/logout-all", authenticate, async (req, res) => {
+    const { id } = req.user;
+
+    await prisma.session.updateMany({
+        where: { userId: id, revoked: false },
+        data: { revoked: true },
+    });
+
+    res.json({ message: "Logged out from all devices" });
+});
 
 // switch organisation
 router.post("/switch-org", authenticate, async (req, res) => {

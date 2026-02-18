@@ -1,6 +1,8 @@
+const prisma = require("../config/prisma");
+const { hashToken } = require("../utils/hash");
 const { verifyToken } = require("./token");
 
-function authenticate(req, res, next) {
+async function authenticate(req, res, next) {
     const header = req.headers.authorization;
 
     if (!header || !header.startsWith("Bearer ")) {
@@ -12,10 +14,31 @@ function authenticate(req, res, next) {
     try {
         const payload = verifyToken(token);
 
+        const tokenHash = hashToken(token);
+
+        const session = await prisma.session.findUnique({
+            where: {
+                tokenHash,
+            },
+        });
+
+        if (!session) {
+            return res.status(401).json({ message: "Session not found" });
+        }
+
+        if (session.revoked) {
+            return res.status(401).json({ message: "Session revoked" });
+        }
+
+        if (session.expiresAt < new Date()) {
+            return res.status(401).json({ message: "Session expired" });
+        }
+
         req.user = {
             id: payload.userId,
             organisationId: payload.organisationId || null,
             organisationName: payload.organisationName,
+            sessionId: payload.sessionId,
         };
 
         next();
