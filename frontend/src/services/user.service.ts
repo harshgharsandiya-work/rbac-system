@@ -1,4 +1,4 @@
-import api from "@/lib/api";
+import api from "@/lib/api/api";
 import { User } from "@/types/user";
 
 export async function getUsers(): Promise<User[]> {

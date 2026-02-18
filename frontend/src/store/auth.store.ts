@@ -1,4 +1,5 @@
-import { setAuthToken } from "@/lib/api";
+import { setAuthToken } from "@/lib/api/api";
+import { logoutUser } from "@/lib/api/auth";
 import { create } from "zustand";
 
 interface AuthState {
@@ -35,7 +36,14 @@ export const useAuthStore = create<AuthState>((set) => ({
         });
     },
 
-    logout: () => {
+    logout: async () => {
+        try {
+            await logoutUser();
+        } catch (error) {
+            console.error("Logout API failed");
+        }
+
+        localStorage.removeItem("token");
         setAuthToken(null);
 
         set({

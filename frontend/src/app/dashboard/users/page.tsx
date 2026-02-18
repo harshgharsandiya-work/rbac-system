@@ -2,7 +2,7 @@
 
 import PermissionGate from "@/components/PermissionGate";
 import AddUserForm from "@/components/users/AddUserForm";
-import api from "@/lib/api";
+import api from "@/lib/api/api";
 import { getRoles } from "@/services/role.service";
 import { getUsers, addUser } from "@/services/user.service";
 import { Role } from "@/types/role";

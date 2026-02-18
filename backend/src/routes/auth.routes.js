@@ -1,4 +1,5 @@
 const express = require("express");
+const bcrypt = require("bcryptjs");
 
 const { signToken } = require("../auth/token");
 const prisma = require("../config/prisma");
@@ -55,7 +56,6 @@ router.post("/register", async (req, res) => {
     res.json({
         message: "Verification email sent",
         email: newUser.email,
-        token,
     });
 });
 
@@ -390,19 +390,17 @@ router.post("/forgot-password", async (req, res) => {
 router.post("/reset-password-token", async (req, res) => {
     const { email, token, newPassword } = req.body;
 
-    const user = await prisma.user.findUnique({
-        where: {
-            email,
-        },
-    });
-
-    if (!user) {
-        return res.status(404).json({
-            message: "Invalid request",
-        });
-    }
-
     try {
+        const user = await prisma.user.findUnique({
+            where: {
+                email,
+            },
+        });
+
+        if (!user) {
+            throw new Error("User not found");
+        }
+
         await verifyToken(user.id, "PASSWORD_RESET", token);
 
         const newPasswordHash = await hashPassword(newPassword);
@@ -429,7 +427,7 @@ router.post("/reset-password-token", async (req, res) => {
 
 //logout current device
 router.post("/logout", authenticate, async (req, res) => {
-    const { sessionId, id } = req.user;
+    const { sessionId } = req.user;
 
     await prisma.session.update({
         where: { id: sessionId },

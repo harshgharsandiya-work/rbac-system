@@ -1,15 +1,15 @@
 "use client";
 
-import api from "@/lib/api";
-import { useAuthStore } from "@/store/auth.store";
+import { registerUser } from "@/lib/api/auth";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import toast from "react-hot-toast";
 
 export default function RegisterPage() {
     const [loading, setLoading] = useState(false);
 
     const router = useRouter();
-    const login = useAuthStore((s) => s.login);
 
     async function handleSubmit(e: any) {
         e.preventDefault();
@@ -17,34 +17,30 @@ export default function RegisterPage() {
 
         const form = new FormData(e.target);
 
-        await api.post("/auth/register", {
-            email: form.get("email"),
-            password: form.get("password"),
-        });
+        try {
+            const data = await registerUser({
+                email: form.get("email") as string,
+                password: form.get("password") as string,
+            });
 
-        const res = await api.post("/auth/login", {
-            email: form.get("email"),
-            password: form.get("password"),
-        });
+            toast.success(data.message || "Verify your email");
 
-        const data = res.data;
-
-        login({
-            email: data.email,
-            token: data.token,
-            roles: data.roles,
-            permissions: data.permissions,
-            organisationId: data.organisationId,
-            organisationName: data.organisationName,
-        });
-        // await registerAction(formData);
-
-        setLoading(false);
-        router.push("/dashboard");
+            // Redirect to OTP page
+            router.push(`/verify-email?email=${data.email}`);
+        } catch (error: any) {
+            toast.error(
+                error.response?.data?.message || "Something went wrong",
+            );
+        } finally {
+            setLoading(false);
+        }
     }
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
+            <p className="text-center text-3xl font-bold text-gray-800">
+                Register Page
+            </p>
             <input
                 name="email"
                 placeholder="Email"
@@ -56,6 +52,10 @@ export default function RegisterPage() {
                 type="password"
                 className="w-full border px-3 py-2 rounded"
             />
+
+            <p className="text-right -mt-3 mb-2 text-gray-900">
+                <Link href="/forgot-password">Forgot Password?</Link>
+            </p>
             <button
                 type="submit"
                 disabled={loading}
@@ -63,6 +63,13 @@ export default function RegisterPage() {
             >
                 {loading ? "Creating..." : "Register"}
             </button>
+
+            <p className="text-center">
+                Aldready have account?{" "}
+                <Link href="/login" className="text-blue-500">
+                    Sign In
+                </Link>
+            </p>
         </form>
     );
 }

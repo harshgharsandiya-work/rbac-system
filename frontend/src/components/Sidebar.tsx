@@ -9,8 +9,8 @@ export default function Sidebar() {
     const { email, organisationName, logout } = useAuthStore();
     const router = useRouter();
 
-    function handleLogout() {
-        logout();
+    async function handleLogout() {
+        await logout();
         router.push("/");
     }
 

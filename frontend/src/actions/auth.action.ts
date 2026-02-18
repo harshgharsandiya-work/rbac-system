@@ -1,6 +1,6 @@
 "use server";
 
-import api from "@/lib/api";
+import api from "@/lib/api/api";
 import { redirect } from "next/navigation";
 
 export async function loginAction(formData: FormData) {

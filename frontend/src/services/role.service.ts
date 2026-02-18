@@ -1,4 +1,4 @@
-import api from "@/lib/api";
+import api from "@/lib/api/api";
 import { Role } from "@/types/role";
 
 export async function getRoles(): Promise<Role[]> {
