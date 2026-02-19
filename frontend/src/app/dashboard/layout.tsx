@@ -6,15 +6,6 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 export default function DashboardLayout({ children }: any) {
-    const token = localStorage.getItem("token");
-    const router = useRouter();
-
-    useEffect(() => {
-        if (!token) {
-            router.push("/");
-        }
-    }, [token]);
-
     return (
         <div className="flex">
             <Sidebar />

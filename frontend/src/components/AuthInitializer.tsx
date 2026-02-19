@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useAuthStore } from "./auth.store";
+import { useAuthStore } from "../store/auth.store";
 import { setAuthToken } from "@/lib/api/api";
 
 export default function AuthInitializer() {

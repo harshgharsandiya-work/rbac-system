@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "react-hot-toast";
-import AuthInitializer from "@/store/AuthInitializer";
+import AuthInitializer from "@/components/AuthInitializer";
 
 export const metadata: Metadata = {
     title: "IAM Platform",

@@ -32,13 +32,15 @@ export default function Sidebar() {
 
                     <PermissionGate permission="role:read">
                         <div className="mt-4">
-                            <Link href="/dashboard/users">Roles</Link>
+                            <Link href="/dashboard/roles">Roles</Link>
                         </div>
                     </PermissionGate>
 
                     <PermissionGate permission="permission:read">
                         <div className="mt-4">
-                            <Link href="/dashboard/users">Permissions</Link>
+                            <Link href="/dashboard/permissions">
+                                Permissions
+                            </Link>
                         </div>
                     </PermissionGate>
                 </nav>

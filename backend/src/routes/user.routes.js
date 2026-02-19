@@ -134,11 +134,17 @@ router.patch(
     async (req, res) => {
         const { userId } = req.params;
         const { roleIds } = req.body;
-        const { organisationId } = req.user;
+        const { organisationId, id: currentUserId } = req.user;
 
         if (!Array.isArray(roleIds) || roleIds.length === 0) {
             return res.status(400).json({
                 message: "roleIds must be a non-empty array",
+            });
+        }
+
+        if (userId === currentUserId) {
+            return res.status(403).json({
+                message: "You cannot change your own role",
             });
         }
 

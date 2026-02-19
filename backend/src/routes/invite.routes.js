@@ -52,6 +52,7 @@ router.post(
                 roleIds,
                 tokenHash,
                 expiresAt,
+                accepted: false,
             },
             create: {
                 email,
