@@ -85,7 +85,7 @@ export default function Sidebar() {
             <OrgSwitcher />
 
             {/* Navigation */}
-            <nav className="flex-1 px-3 mt-2 space-y-1">
+            <nav className="flex-1 overflow-y-auto px-3 mt-2 space-y-1">
                 {navItems.map((item) => {
                     const link = (
                         <Link
@@ -174,7 +174,7 @@ export default function Sidebar() {
             )}
 
             {/* Desktop sidebar */}
-            <aside className="hidden lg:flex w-64 bg-gray-950 min-h-screen flex-col flex-shrink-0">
+            <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-64 bg-gray-950 flex-col z-40">
                 {navContent}
             </aside>
 
