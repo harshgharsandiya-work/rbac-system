@@ -2,6 +2,7 @@ const express = require("express");
 
 const { authenticate } = require("../auth/authMiddleware");
 const { requirePermission } = require("../rbac/requirePermission");
+const { getEffectivePermissions } = require("../rbac/getEffectivePermissions");
 const prisma = require("../config/prisma");
 const { defaultPermissions } = require("../utils/permissions");
 const { signToken } = require("../auth/token");
@@ -16,11 +17,13 @@ router.post("/", authenticate, async (req, res) => {
     const { name, slug } = req.body;
     const { id: userId } = req.user;
 
+    if (!name || !slug) {
+        return res.status(400).json({ message: "Name and slug are required" });
+    }
+
     try {
         const orgExist = await prisma.organisation.findUnique({
-            where: {
-                slug,
-            },
+            where: { slug },
         });
 
         if (orgExist) {
@@ -30,12 +33,8 @@ router.post("/", authenticate, async (req, res) => {
         }
 
         const organisation = await prisma.$transaction(async (tx) => {
-            //organisation
             const org = await tx.organisation.create({
-                data: {
-                    name,
-                    slug,
-                },
+                data: { name, slug },
             });
 
             const ownerRole = await tx.role.create({
@@ -46,8 +45,7 @@ router.post("/", authenticate, async (req, res) => {
                 },
             });
 
-            //create default permission(skip duplicates)
-            const p = await tx.permission.createMany({
+            await tx.permission.createMany({
                 data: defaultPermissions.map((perm) => ({
                     key: perm.key,
                     description: perm.description,
@@ -59,9 +57,7 @@ router.post("/", authenticate, async (req, res) => {
             const permissions = await tx.permission.findMany({
                 where: {
                     organisationId: org.id,
-                    key: {
-                        in: defaultPermissions.map((p) => p.key),
-                    },
+                    key: { in: defaultPermissions.map((p) => p.key) },
                 },
             });
 
@@ -73,7 +69,6 @@ router.post("/", authenticate, async (req, res) => {
                 skipDuplicates: true,
             });
 
-            //memership
             await tx.memberShip.create({
                 data: {
                     userId,
@@ -114,13 +109,8 @@ router.delete(
             }
 
             const membership = await prisma.memberShip.findFirst({
-                where: {
-                    userId,
-                    organisationId,
-                },
-                include: {
-                    role: true,
-                },
+                where: { userId, organisationId },
+                include: { role: true },
             });
 
             if (!membership) {
@@ -129,51 +119,49 @@ router.delete(
                 });
             }
 
-            //TODO: role based organisation delete
-            //For now owner can delete organisation
             if (!membership.isOwner) {
                 return res.status(403).json({
                     message: "Only owner can delete organisation",
                 });
             }
 
-            //delete transaction
             await prisma.$transaction(async (tx) => {
-                //membership
-                await tx.memberShip.deleteMany({
-                    where: {
-                        organisationId,
-                    },
+                await tx.organisationInvite.deleteMany({
+                    where: { organisationId },
                 });
 
-                //role permissions
+                await tx.featureFlag.deleteMany({
+                    where: { organisationId },
+                });
+
+                await tx.apiKey.deleteMany({
+                    where: { organisationId },
+                });
+
+                await tx.subscription.deleteMany({
+                    where: { organisationId },
+                });
+
+                await tx.memberShip.deleteMany({
+                    where: { organisationId },
+                });
+
                 await tx.rolePermission.deleteMany({
                     where: {
-                        role: {
-                            organisationId,
-                        },
+                        role: { organisationId },
                     },
                 });
 
-                //role
                 await tx.role.deleteMany({
-                    where: {
-                        organisationId,
-                    },
+                    where: { organisationId },
                 });
 
-                //permission
                 await tx.permission.deleteMany({
-                    where: {
-                        organisationId,
-                    },
+                    where: { organisationId },
                 });
 
-                //organisation
                 await tx.organisation.delete({
-                    where: {
-                        id: organisationId,
-                    },
+                    where: { id: organisationId },
                 });
             });
 
@@ -196,14 +184,16 @@ router.get("/", authenticate, async (req, res) => {
 
     try {
         const organisation = await prisma.organisation.findUnique({
-            where: {
-                id: organisationId,
-            },
+            where: { id: organisationId },
             include: {
                 roles: true,
                 permissions: true,
             },
         });
+
+        if (!organisation) {
+            return res.status(404).json({ message: "Organisation not found" });
+        }
 
         return res.json(organisation);
     } catch (error) {
@@ -257,16 +247,16 @@ router.patch(
 
         try {
             const organisation = await prisma.organisation.findUnique({
-                where: {
-                    id: organisationId,
-                },
+                where: { id: organisationId },
             });
+
+            if (!organisation) {
+                return res.status(404).json({ message: "Organisation not found" });
+            }
 
             if (slug && slug !== organisation.slug) {
                 const slugExist = await prisma.organisation.findUnique({
-                    where: {
-                        slug,
-                    },
+                    where: { slug },
                 });
 
                 if (slugExist) {
@@ -281,9 +271,7 @@ router.patch(
             if (slug !== undefined) updateData.slug = slug;
 
             const updatedOrganisation = await prisma.organisation.update({
-                where: {
-                    id: organisationId,
-                },
+                where: { id: organisationId },
                 data: updateData,
             });
 
@@ -303,22 +291,23 @@ router.post("/switch", authenticate, async (req, res) => {
     const { organisationId } = req.body;
     const { id: userId } = req.user;
 
+    if (!organisationId) {
+        return res.status(400).json({ message: "organisationId is required" });
+    }
+
     try {
         const membership = await prisma.memberShip.findFirst({
-            where: {
-                userId,
-                organisationId,
-            },
-            include: {
-                organisation: true,
-            },
+            where: { userId, organisationId },
+            include: { organisation: true },
         });
 
         if (!membership) {
             return res.status(403).json({ message: "Not a member of this org" });
         }
 
-        //session implement
+        const userAgent = req.headers["user-agent"] || "unknown";
+        const ipAddress = req.ip || "unknown";
+
         const sessionId = crypto.randomUUID();
         const token = signToken({
             userId,
@@ -329,14 +318,14 @@ router.post("/switch", authenticate, async (req, res) => {
 
         const tokenHash = hashToken(token);
 
-        const sessionExpireAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+        const sessionExpireAt = new Date(Date.now() + 60 * 60 * 1000);
 
         await prisma.session.upsert({
             where: {
                 userId_userAgent_ipAddress: {
                     userId,
-                    userAgent: req.headers["user-agent"],
-                    ipAddress: req.ip,
+                    userAgent,
+                    ipAddress,
                 },
             },
             update: {
@@ -350,13 +339,12 @@ router.post("/switch", authenticate, async (req, res) => {
                 userId,
                 tokenHash,
                 revoked: false,
-                userAgent: req.headers["user-agent"],
-                ipAddress: req.ip,
+                userAgent,
+                ipAddress,
                 expiresAt: sessionExpireAt,
             },
         });
 
-        const { getEffectivePermissions } = require("../rbac/getEffectivePermissions");
         const effectivePermissions = await getEffectivePermissions(userId, organisationId);
 
         res.json({

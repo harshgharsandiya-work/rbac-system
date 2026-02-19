@@ -14,12 +14,19 @@ import {
     Menu,
     X,
     ChevronRight,
+    ArrowLeftRight,
 } from "lucide-react";
 import { useState } from "react";
 import OrgSwitcher from "./OrgSwitcher";
 
 const navItems = [
-    { href: "/dashboard", label: "Home", icon: Home, permission: null },
+    {
+        href: "/dashboard",
+        label: "Home",
+        icon: Home,
+        permission: null,
+        exact: true,
+    },
     {
         href: "/dashboard/users",
         label: "Users",
@@ -43,6 +50,13 @@ const navItems = [
         label: "Organisation",
         icon: Settings,
         permission: null,
+        exact: true,
+    },
+    {
+        href: "/dashboard/organisation/switch",
+        label: "Switch Org",
+        icon: ArrowLeftRight,
+        permission: null,
     },
 ];
 
@@ -57,10 +71,13 @@ export default function Sidebar() {
         router.push("/");
     }
 
-    const isActive = (href: string) =>
-        href === "/dashboard"
-            ? pathname === "/dashboard"
-            : pathname.startsWith(href);
+    const isActive = (item: any) => {
+        if (item.exact) {
+            return pathname === item.href;
+        }
+
+        return pathname === item.href || pathname.startsWith(item.href + "/");
+    };
 
     const navContent = (
         <>
@@ -76,20 +93,20 @@ export default function Sidebar() {
                             href={item.href}
                             onClick={() => setMobileOpen(false)}
                             className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${
-                                isActive(item.href)
+                                isActive(item)
                                     ? "bg-primary-500/10 text-primary-400"
                                     : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
                             }`}
                         >
                             <item.icon
                                 className={`w-[18px] h-[18px] flex-shrink-0 ${
-                                    isActive(item.href)
+                                    isActive(item)
                                         ? "text-primary-400"
                                         : "text-gray-500 group-hover:text-gray-300"
                                 }`}
                             />
                             {item.label}
-                            {isActive(item.href) && (
+                            {isActive(item) && (
                                 <ChevronRight className="w-4 h-4 ml-auto text-primary-400" />
                             )}
                         </Link>

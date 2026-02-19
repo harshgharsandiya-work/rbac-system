@@ -21,129 +21,132 @@ const router = express.Router();
 
 //register
 router.post("/register", async (req, res) => {
-    const { email, password } = req.body;
+    try {
+        const { email, password } = req.body;
 
-    const user = await prisma.user.findUnique({
-        where: {
-            email,
-        },
-    });
+        if (!email || !password) {
+            return res.status(400).json({ message: "Email and password are required" });
+        }
 
-    if (user && user.isActive) {
-        return res.status(400).json({ message: "User is aldready registered" });
+        const user = await prisma.user.findUnique({
+            where: { email },
+        });
+
+        if (user && user.isActive) {
+            return res.status(400).json({ message: "User is already registered" });
+        }
+
+        const passwordHash = await hashPassword(password);
+
+        const newUser = await prisma.user.upsert({
+            where: { email },
+            update: {
+                passwordHash,
+                isActive: false,
+            },
+            create: {
+                email,
+                passwordHash,
+                isActive: false,
+            },
+        });
+
+        const token = await createVerificationToken(newUser.id, "EMAIL_VERIFY");
+        await sendVerificationEmail(newUser.email, token);
+
+        res.json({
+            message: "Verification email sent",
+            email: newUser.email,
+        });
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
     }
-
-    //hash password
-    const passwordHash = await hashPassword(password);
-
-    const newUser = await prisma.user.upsert({
-        where: {
-            email,
-        },
-        update: {
-            passwordHash,
-            isActive: false,
-        },
-        create: {
-            email,
-            passwordHash,
-            isActive: false,
-        },
-    });
-
-    const token = await createVerificationToken(newUser.id, "EMAIL_VERIFY");
-    await sendVerificationEmail(newUser.email, token);
-
-    res.json({
-        message: "Verification email sent",
-        email: newUser.email,
-    });
 });
 
 //verify mail
 router.post("/verify-email", async (req, res) => {
     const { email, token } = req.body;
 
-    const user = await prisma.user.findUnique({
-        where: {
-            email,
-        },
-        include: {
-            memberShips: {
-                include: {
-                    organisation: true,
-                    role: true,
-                },
-            },
-        },
-    });
-
-    if (!user) {
-        return res.status(400).json({ message: "User not found" });
+    if (!email || !token) {
+        return res.status(400).json({ message: "Email and token are required" });
     }
 
     try {
-        await verifyToken(user.id, "EMAIL_VERIFY", token);
-
-        await prisma.user.update({
-            where: {
-                id: user.id,
-            },
-            data: {
-                isActive: true,
+        const user = await prisma.user.findUnique({
+            where: { email },
+            include: {
+                memberShips: {
+                    include: {
+                        organisation: true,
+                        role: true,
+                    },
+                },
             },
         });
 
-        //if user has no organisation --> create default one
+        if (!user) {
+            return res.status(400).json({ message: "User not found" });
+        }
+
+        await verifyToken(user.id, "EMAIL_VERIFY", token);
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { isActive: true },
+        });
+
         if (!user.memberShips.length) {
-            const organisation = await prisma.organisation.create({
-                data: {
-                    name: `${email.split("@")[0]}'s Workspace`,
-                    slug: `${email.replace(/[.@]/g, "-")}`,
-                },
-            });
+            await prisma.$transaction(async (tx) => {
+                const organisation = await tx.organisation.create({
+                    data: {
+                        name: `${email.split("@")[0]}'s Workspace`,
+                        slug: `${email.replace(/[.@]/g, "-")}`,
+                    },
+                });
 
-            //create owner role
-            const ownerRole = await prisma.role.create({
-                data: {
-                    organisationId: organisation.id,
-                    name: "OWNER",
-                    isSystem: true,
-                },
-            });
+                const ownerRole = await tx.role.create({
+                    data: {
+                        organisationId: organisation.id,
+                        name: "OWNER",
+                        isSystem: true,
+                    },
+                });
 
-            for (const perm of defaultPermissions) {
-                const permission = await prisma.permission.upsert({
-                    where: {
-                        key_organisationId: {
+                const permissionRecords = [];
+                for (const perm of defaultPermissions) {
+                    const permission = await tx.permission.upsert({
+                        where: {
+                            key_organisationId: {
+                                key: perm.key,
+                                organisationId: organisation.id,
+                            },
+                        },
+                        update: {},
+                        create: {
                             key: perm.key,
                             organisationId: organisation.id,
+                            description: perm.description,
                         },
-                    },
-                    update: {},
-                    create: {
-                        key: perm.key,
-                        organisationId: organisation.id,
-                        description: perm.description,
-                    },
-                });
+                    });
+                    permissionRecords.push(permission);
+                }
 
-                await prisma.rolePermission.create({
-                    data: {
+                await tx.rolePermission.createMany({
+                    data: permissionRecords.map((p) => ({
                         roleId: ownerRole.id,
-                        permissionId: permission.id,
+                        permissionId: p.id,
+                    })),
+                    skipDuplicates: true,
+                });
+
+                await tx.memberShip.create({
+                    data: {
+                        userId: user.id,
+                        organisationId: organisation.id,
+                        roleId: ownerRole.id,
+                        isOwner: true,
                     },
                 });
-            }
-
-            // assign owner membership
-            await prisma.memberShip.create({
-                data: {
-                    userId: user.id,
-                    organisationId: organisation.id,
-                    roleId: ownerRole.id,
-                    isOwner: true,
-                },
             });
         }
 
@@ -158,191 +161,202 @@ router.post("/verify-email", async (req, res) => {
 
 // login
 router.post("/login", async (req, res) => {
-    const { email, password } = req.body;
+    try {
+        const { email, password } = req.body;
 
-    let user = await prisma.user.findUnique({
-        where: { email },
-        include: {
-            memberShips: {
-                include: {
-                    organisation: true,
-                    role: true,
+        if (!email || !password) {
+            return res.status(400).json({ message: "Email and password are required" });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { email },
+            include: {
+                memberShips: {
+                    include: {
+                        organisation: true,
+                        role: true,
+                    },
                 },
-            },
-        },
-    });
-
-    if (!user) {
-        return res.status(401).json({ message: "Invalid credentials" });
-    }
-
-    const valid = await verifyPassword(password, user.passwordHash);
-    if (!valid) {
-        return res.status(401).json({ message: "Invalid credentials" });
-    }
-
-    if (!user.isActive) {
-        const verificationToken = await prisma.verificationToken.findFirst({
-            where: {
-                userId: user.id,
-                type: "EMAIL_VERIFY",
             },
         });
 
-        if (!verificationToken || verificationToken.expiresAt < new Date()) {
-            const newToken = await createVerificationToken(
-                user.id,
-                "EMAIL_VERIFY",
-            );
+        if (!user) {
+            return res.status(401).json({ message: "Invalid credentials" });
+        }
 
-            await sendVerificationEmail(user.email, newToken);
+        const valid = await verifyPassword(password, user.passwordHash);
+        if (!valid) {
+            return res.status(401).json({ message: "Invalid credentials" });
+        }
+
+        if (!user.isActive) {
+            const verificationToken = await prisma.verificationToken.findFirst({
+                where: {
+                    userId: user.id,
+                    type: "EMAIL_VERIFY",
+                },
+            });
+
+            if (!verificationToken || verificationToken.expiresAt < new Date()) {
+                const newToken = await createVerificationToken(
+                    user.id,
+                    "EMAIL_VERIFY",
+                );
+
+                await sendVerificationEmail(user.email, newToken);
+                return res.status(403).json({
+                    message: "Verification expired. New email sent.",
+                });
+            }
+
             return res.status(403).json({
-                message: "Verification expired. New email sent.",
+                message: "Please verify your mail before logging in",
             });
         }
 
-        return res.status(403).json({
-            message: "Please verify your mail before logging in",
-        });
-    }
+        if (!user.memberShips.length) {
+            return res.status(403).json({
+                message: "No organisation found. Please contact support.",
+            });
+        }
 
-    user = await prisma.user.findUnique({
-        where: {
-            id: user.id,
-        },
-        include: {
-            memberShips: {
-                include: {
-                    organisation: true,
-                    role: true,
+        const defaultOrg = user.memberShips[0].organisation;
+
+        const userAgent = req.headers["user-agent"] || "unknown";
+        const ipAddress = req.ip || "unknown";
+
+        const sessionId = crypto.randomUUID();
+        const token = signToken({
+            userId: user.id,
+            organisationId: defaultOrg.id,
+            organisationName: defaultOrg.name,
+            sessionId,
+        });
+        const tokenHash = hashToken(token);
+
+        const sessionExpireAt = new Date(Date.now() + 60 * 60 * 1000);
+
+        await prisma.session.upsert({
+            where: {
+                userId_userAgent_ipAddress: {
+                    userId: user.id,
+                    userAgent,
+                    ipAddress,
                 },
             },
-        },
-    });
-
-    //pick default org (logic: first org)
-    const defaultOrg = user.memberShips[0].organisation;
-
-    //session based login
-    const sessionId = crypto.randomUUID();
-    const token = signToken({
-        userId: user.id,
-        organisationId: defaultOrg.id,
-        organisationName: defaultOrg.name,
-        sessionId,
-    });
-    const tokenHash = hashToken(token);
-
-    const sessionExpireAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-
-    await prisma.session.upsert({
-        where: {
-            userId_userAgent_ipAddress: {
-                userId: user.id,
-                userAgent: req.headers["user-agent"],
-                ipAddress: req.ip,
+            update: {
+                id: sessionId,
+                tokenHash,
+                revoked: false,
+                expiresAt: sessionExpireAt,
             },
-        },
-        update: {
-            id: sessionId,
-            tokenHash,
-            revoked: false,
-            expiresAt: sessionExpireAt,
-        },
-        create: {
-            id: sessionId,
-            userId: user.id,
-            tokenHash,
-            revoked: false,
-            userAgent: req.headers["user-agent"],
-            ipAddress: req.ip,
-            expiresAt: sessionExpireAt,
-        },
-    });
+            create: {
+                id: sessionId,
+                userId: user.id,
+                tokenHash,
+                revoked: false,
+                userAgent,
+                ipAddress,
+                expiresAt: sessionExpireAt,
+            },
+        });
 
-    const effectivePermissions = await getEffectivePermissions(
-        user.id,
-        defaultOrg.id,
-    );
+        const effectivePermissions = await getEffectivePermissions(
+            user.id,
+            defaultOrg.id,
+        );
 
-    res.json({
-        email: user.email,
-        token,
-        organisationId: defaultOrg.id,
-        organisationName: defaultOrg.name,
-        roles: effectivePermissions.roles,
-        permissions: effectivePermissions.permissions,
-    });
+        res.json({
+            email: user.email,
+            token,
+            organisationId: defaultOrg.id,
+            organisationName: defaultOrg.name,
+            roles: effectivePermissions.roles,
+            permissions: effectivePermissions.permissions,
+        });
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
+    }
 });
 
 //password reset using current password (logged in user)
 router.post("/reset-password", authenticate, async (req, res) => {
-    const { currentPassword, newPassword } = req.body;
+    try {
+        const { currentPassword, newPassword } = req.body;
 
-    const userId = req.user.id;
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ message: "Current and new password are required" });
+        }
 
-    const user = await prisma.user.findUnique({
-        where: {
-            id: userId,
-        },
-    });
+        const userId = req.user.id;
 
-    const isValid = await verifyPassword(currentPassword, user.passwordHash);
-
-    if (!isValid) {
-        return res.status(400).json({
-            message: "Current password is incorrect",
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
         });
+
+        const isValid = await verifyPassword(currentPassword, user.passwordHash);
+
+        if (!isValid) {
+            return res.status(400).json({
+                message: "Current password is incorrect",
+            });
+        }
+
+        const newPasswordHash = await hashPassword(newPassword);
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { passwordHash: newPasswordHash },
+        });
+
+        res.json({ message: "Password successfully updated" });
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
     }
-
-    const newPasswordHash = await hashPassword(newPassword);
-
-    await prisma.user.update({
-        where: {
-            id: user.id,
-        },
-        data: {
-            passwordHash: newPasswordHash,
-        },
-    });
-
-    res.json({ message: "Password successfully updated" });
 });
 
 //forgot password (using email verification)
 router.post("/forgot-password", async (req, res) => {
-    const { email } = req.body;
+    try {
+        const { email } = req.body;
 
-    const user = await prisma.user.findUnique({
-        where: {
-            email,
-        },
-    });
+        if (!email) {
+            return res.status(400).json({ message: "Email is required" });
+        }
 
-    if (!user) {
-        return res.status(404).json({
-            message: "Account not exist",
+        const user = await prisma.user.findUnique({
+            where: { email },
         });
+
+        if (!user) {
+            return res.status(404).json({
+                message: "Account not exist",
+            });
+        }
+
+        const token = await createVerificationToken(user.id, "PASSWORD_RESET");
+
+        await sendForgotPasswordEmail(user.email, token);
+
+        return res.status(200).json({
+            message: "Reset OTP send to email",
+        });
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
     }
-
-    const token = await createVerificationToken(user.id, "PASSWORD_RESET");
-
-    await sendForgotPasswordEmail(user.email, token);
-
-    return res.status(200).json({
-        message: "Reset OTP send to email",
-    });
 });
 
 //verify reset password token --> set new password
 router.post("/reset-password-token", async (req, res) => {
     const { email, token, newPassword } = req.body;
 
+    if (!email || !token || !newPassword) {
+        return res.status(400).json({ message: "Email, token, and new password are required" });
+    }
+
     try {
         const user = await prisma.user.findUnique({
-            where: {
-                email,
-            },
+            where: { email },
         });
 
         if (!user) {
@@ -354,12 +368,8 @@ router.post("/reset-password-token", async (req, res) => {
         const newPasswordHash = await hashPassword(newPassword);
 
         await prisma.user.update({
-            where: {
-                id: user.id,
-            },
-            data: {
-                passwordHash: newPasswordHash,
-            },
+            where: { id: user.id },
+            data: { passwordHash: newPasswordHash },
         });
         res.json({
             message: "Password successfully reset",
@@ -371,32 +381,36 @@ router.post("/reset-password-token", async (req, res) => {
     }
 });
 
-//TODO: two factor
-
 //logout current device
 router.post("/logout", authenticate, async (req, res) => {
-    const { sessionId } = req.user;
+    try {
+        const { sessionId } = req.user;
 
-    await prisma.session.update({
-        where: { id: sessionId },
-        data: {
-            revoked: true,
-        },
-    });
+        await prisma.session.update({
+            where: { id: sessionId },
+            data: { revoked: true },
+        });
 
-    return res.json({ message: "Logged out successfully" });
+        return res.json({ message: "Logged out successfully" });
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
+    }
 });
 
 //logout all device
 router.post("/logout-all", authenticate, async (req, res) => {
-    const { id } = req.user;
+    try {
+        const { id } = req.user;
 
-    await prisma.session.updateMany({
-        where: { userId: id, revoked: false },
-        data: { revoked: true },
-    });
+        await prisma.session.updateMany({
+            where: { userId: id, revoked: false },
+            data: { revoked: true },
+        });
 
-    res.json({ message: "Logged out from all devices" });
+        res.json({ message: "Logged out from all devices" });
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
+    }
 });
 
 module.exports = router;

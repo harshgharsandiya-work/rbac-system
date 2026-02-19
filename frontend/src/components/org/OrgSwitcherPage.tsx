@@ -34,7 +34,9 @@ export default function OrgSwitchPage() {
             router.refresh();
         } catch (error: unknown) {
             const err = error as { response?: { data?: { message?: string } } };
-            toast.error(err.response?.data?.message || "Failed to switch organisation");
+            toast.error(
+                err.response?.data?.message || "Failed to switch organisation",
+            );
         }
     }
 
@@ -51,8 +53,14 @@ export default function OrgSwitchPage() {
             setShowCreate(false);
             await fetchOrganisations();
         } catch (error: unknown) {
-            const err = error as { response?: { data?: { message?: string; error?: string } } };
-            toast.error(err.response?.data?.message || err.response?.data?.error || "Failed to create organisation");
+            const err = error as {
+                response?: { data?: { message?: string; error?: string } };
+            };
+            toast.error(
+                err.response?.data?.message ||
+                    err.response?.data?.error ||
+                    "Failed to create organisation",
+            );
         } finally {
             setCreating(false);
         }
@@ -101,9 +109,13 @@ export default function OrgSwitchPage() {
                                     {org.name[0]?.toUpperCase()}
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                    <p className={`font-semibold truncate ${
-                                        isCurrent ? "text-primary-700" : "text-gray-900"
-                                    }`}>
+                                    <p
+                                        className={`font-semibold truncate ${
+                                            isCurrent
+                                                ? "text-primary-700"
+                                                : "text-gray-900"
+                                        }`}
+                                    >
                                         {org.name}
                                     </p>
                                     <p className="text-xs text-gray-400 font-mono truncate mt-0.5">

@@ -6,10 +6,12 @@ import {
     updateOrganisation,
     Organisation,
 } from "@/lib/api/organisation";
+import { useAuthStore } from "@/store/auth.store";
 import { Settings, Building2, Save, Globe } from "lucide-react";
 import toast from "react-hot-toast";
 import PermissionGate from "@/components/PermissionGate";
 import { CardSkeleton } from "@/components/ui/Skeleton";
+import OrgSwitchPage from "./switch/page";
 
 export default function OrganisationPage() {
     const [org, setOrg] = useState<Organisation | null>(null);
@@ -17,10 +19,16 @@ export default function OrganisationPage() {
     const [saving, setSaving] = useState(false);
     const [name, setName] = useState("");
     const [slug, setSlug] = useState("");
+    const organisationId = useAuthStore((s) => s.organisationId);
+    const updateOrganisationName = useAuthStore(
+        (s) => s.updateOrganisationName,
+    );
 
     useEffect(() => {
-        fetchOrg();
-    }, []);
+        if (organisationId) {
+            fetchOrg();
+        }
+    }, [organisationId]);
 
     async function fetchOrg() {
         try {
@@ -31,7 +39,9 @@ export default function OrganisationPage() {
             setSlug(data.slug);
         } catch (error: unknown) {
             const err = error as { response?: { data?: { message?: string } } };
-            toast.error(err.response?.data?.message || "Failed to load organisation");
+            toast.error(
+                err.response?.data?.message || "Failed to load organisation",
+            );
         } finally {
             setLoading(false);
         }
@@ -44,6 +54,7 @@ export default function OrganisationPage() {
         try {
             await updateOrganisation({ name, slug });
             toast.success("Organisation updated");
+            if (name) updateOrganisationName(name);
             await fetchOrg();
         } catch (error: unknown) {
             const err = error as { response?: { data?: { message?: string } } };
@@ -121,7 +132,9 @@ export default function OrganisationPage() {
                                     </label>
                                     <input
                                         value={name}
-                                        onChange={(e) => setName(e.target.value)}
+                                        onChange={(e) =>
+                                            setName(e.target.value)
+                                        }
                                         className="w-full border border-gray-300 px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow"
                                     />
                                 </div>
@@ -131,7 +144,9 @@ export default function OrganisationPage() {
                                     </label>
                                     <input
                                         value={slug}
-                                        onChange={(e) => setSlug(e.target.value)}
+                                        onChange={(e) =>
+                                            setSlug(e.target.value)
+                                        }
                                         className="w-full border border-gray-300 px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow font-mono"
                                     />
                                 </div>
@@ -162,21 +177,33 @@ export default function OrganisationPage() {
                                     </span>
                                 </div>
                                 <div className="flex justify-between py-2 border-b border-gray-100">
-                                    <span className="text-gray-500">Status</span>
-                                    <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${org.isActive ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+                                    <span className="text-gray-500">
+                                        Status
+                                    </span>
+                                    <span
+                                        className={`px-2 py-0.5 rounded-lg text-xs font-medium ${org.isActive ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}
+                                    >
                                         {org.isActive ? "Active" : "Inactive"}
                                     </span>
                                 </div>
                                 <div className="flex justify-between py-2 border-b border-gray-100">
-                                    <span className="text-gray-500">Created</span>
+                                    <span className="text-gray-500">
+                                        Created
+                                    </span>
                                     <span className="text-gray-900">
-                                        {new Date(org.createdAt).toLocaleDateString()}
+                                        {new Date(
+                                            org.createdAt,
+                                        ).toLocaleDateString()}
                                     </span>
                                 </div>
                                 <div className="flex justify-between py-2">
-                                    <span className="text-gray-500">Updated</span>
+                                    <span className="text-gray-500">
+                                        Updated
+                                    </span>
                                     <span className="text-gray-900">
-                                        {new Date(org.updatedAt).toLocaleDateString()}
+                                        {new Date(
+                                            org.updatedAt,
+                                        ).toLocaleDateString()}
                                     </span>
                                 </div>
                             </div>

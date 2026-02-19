@@ -21,7 +21,7 @@ export default function OrgSwitcher() {
 
     useEffect(() => {
         fetchOrganisations();
-    }, [fetchOrganisations]);
+    }, [fetchOrganisations, organisationId]);
 
     useEffect(() => {
         function handleClickOutside(e: MouseEvent) {

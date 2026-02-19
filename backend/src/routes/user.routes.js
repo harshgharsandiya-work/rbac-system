@@ -67,25 +67,29 @@ const router = express.Router();
  * get user effective permission + roles
  */
 router.get("/me", authenticate, async (req, res) => {
-    const { id, organisationId, organisationName } = req.user;
+    try {
+        const { id, organisationId, organisationName } = req.user;
 
-    if (!organisationId) {
-        return res.status(400).json({
-            message: "Organisation not selected",
+        if (!organisationId) {
+            return res.status(400).json({
+                message: "Organisation not selected",
+            });
+        }
+
+        const effectivePermissions = await getEffectivePermissions(
+            id,
+            organisationId,
+        );
+
+        res.json({
+            organisationId,
+            organisationName,
+            roles: effectivePermissions.roles,
+            permissions: effectivePermissions.permissions,
         });
+    } catch (error) {
+        res.status(500).json({ message: "Failed to fetch user info" });
     }
-
-    const effectivePermissions = await getEffectivePermissions(
-        id,
-        organisationId,
-    );
-
-    res.json({
-        organisationId,
-        organisationName,
-        roles: effectivePermissions.roles,
-        permissions: effectivePermissions.permissions,
-    });
 });
 
 //read all user

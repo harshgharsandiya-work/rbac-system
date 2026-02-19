@@ -2,21 +2,24 @@
 
 import { getRoles, createRole, updateRole, deleteRole } from "@/lib/api/role";
 import { Role, UpdateRolePayload } from "@/types/role";
+import { useAuthStore } from "@/store/auth.store";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
 export function useRoles() {
     const [roles, setRoles] = useState<Role[]>([]);
     const [loading, setLoading] = useState(false);
+    const organisationId = useAuthStore((s) => s.organisationId);
 
     async function fetchRoles() {
         try {
             setLoading(true);
             const data = await getRoles();
             setRoles(data);
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
             toast.error(
-                error.response?.data?.message || "Failed to fetch roles",
+                err.response?.data?.message || "Failed to fetch roles",
             );
         } finally {
             setLoading(false);
@@ -28,8 +31,9 @@ export function useRoles() {
             const res = await createRole({ name, permissions });
             await fetchRoles();
             toast.success(res.message || "Role created");
-        } catch (error: any) {
-            toast.error(error.response?.data?.message || "Role create failed");
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            toast.error(err.response?.data?.message || "Role create failed");
         }
     }
 
@@ -38,8 +42,9 @@ export function useRoles() {
             await updateRole(roleId, data);
             await fetchRoles();
             toast.success("Role updated");
-        } catch (error: any) {
-            toast.error(error.response?.data?.message || "Role update failed");
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            toast.error(err.response?.data?.message || "Role update failed");
         }
     }
 
@@ -48,14 +53,17 @@ export function useRoles() {
             await deleteRole(roleId);
             await fetchRoles();
             toast.success("Role deleted");
-        } catch (error: any) {
-            toast.error(error.response?.data?.message || "Role delete failed");
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            toast.error(err.response?.data?.message || "Role delete failed");
         }
     }
 
     useEffect(() => {
-        fetchRoles();
-    }, []);
+        if (organisationId) {
+            fetchRoles();
+        }
+    }, [organisationId]);
 
     return {
         roles,

@@ -14,11 +14,14 @@ interface AuthState {
     organisationName: string | null;
     organisations: OrganisationSummary[];
     switchingOrg: boolean;
+    _hasHydrated: boolean;
 
+    setHasHydrated: (hydrated: boolean) => void;
     login: (data: LoginResponse) => void;
-    logout: () => void;
+    logout: () => Promise<void>;
     switchOrg: (organisationId: string) => Promise<void>;
     fetchOrganisations: () => Promise<void>;
+    updateOrganisationName: (name: string) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -32,6 +35,11 @@ export const useAuthStore = create<AuthState>()(
             organisationName: null,
             organisations: [],
             switchingOrg: false,
+            _hasHydrated: false,
+
+            setHasHydrated: (hydrated: boolean) => {
+                set({ _hasHydrated: hydrated });
+            },
 
             login: (data: LoginResponse) => {
                 setAuthToken(data.token);
@@ -98,9 +106,34 @@ export const useAuthStore = create<AuthState>()(
                     throw error;
                 }
             },
+
+            updateOrganisationName: (name: string) => {
+                set({ organisationName: name });
+            },
         }),
         {
             name: "auth-storage",
+            partialize: (state) => ({
+                email: state.email,
+                token: state.token,
+                roles: state.roles,
+                permissions: state.permissions,
+                organisationId: state.organisationId,
+                organisationName: state.organisationName,
+                organisations: state.organisations,
+            }),
+            onRehydrateStorage: () => {
+                return (state) => {
+                    if (state?.token) {
+                        setAuthToken(state.token);
+                    }
+                    if (state) {
+                        state.setHasHydrated(true);
+                    } else {
+                        useAuthStore.getState().setHasHydrated(true);
+                    }
+                };
+            },
         },
     ),
 );
