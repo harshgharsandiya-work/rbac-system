@@ -214,19 +214,29 @@ router.get("/", authenticate, async (req, res) => {
 });
 
 /**
- * get all organisation
+ * get all organisations the user belongs to
  */
 router.get("/all", authenticate, async (req, res) => {
     try {
-        const organisation = await prisma.organisation.findMany({
+        const { id: userId } = req.user;
+
+        const memberships = await prisma.memberShip.findMany({
+            where: { userId },
             select: {
-                id: true,
-                name: true,
-                slug: true,
+                organisation: {
+                    select: {
+                        id: true,
+                        name: true,
+                        slug: true,
+                    },
+                },
             },
+            distinct: ["organisationId"],
         });
 
-        return res.json(organisation);
+        const organisations = memberships.map((m) => m.organisation);
+
+        return res.json(organisations);
     } catch (error) {
         return res.status(400).json({
             error: error.message,
@@ -293,59 +303,72 @@ router.post("/switch", authenticate, async (req, res) => {
     const { organisationId } = req.body;
     const { id: userId } = req.user;
 
-    const membership = await prisma.memberShip.findFirst({
-        where: {
-            userId: req.user.id,
-            organisationId,
-        },
-        include: {
-            organisation: true,
-        },
-    });
-
-    if (!membership) {
-        return res.status(403).json({ message: "Not a member of this org" });
-    }
-
-    //session implement
-    const sessionId = crypto.randomUUID();
-    const token = signToken({
-        userId: req.user.id,
-        organisationId,
-        organisationName: membership.organisation.name,
-        sessionId,
-    });
-
-    const tokenHash = hashToken(token);
-
-    const sessionExpireAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-
-    await prisma.session.upsert({
-        where: {
-            userId_userAgent_ipAddress: {
+    try {
+        const membership = await prisma.memberShip.findFirst({
+            where: {
                 userId,
+                organisationId,
+            },
+            include: {
+                organisation: true,
+            },
+        });
+
+        if (!membership) {
+            return res.status(403).json({ message: "Not a member of this org" });
+        }
+
+        //session implement
+        const sessionId = crypto.randomUUID();
+        const token = signToken({
+            userId,
+            organisationId,
+            organisationName: membership.organisation.name,
+            sessionId,
+        });
+
+        const tokenHash = hashToken(token);
+
+        const sessionExpireAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+        await prisma.session.upsert({
+            where: {
+                userId_userAgent_ipAddress: {
+                    userId,
+                    userAgent: req.headers["user-agent"],
+                    ipAddress: req.ip,
+                },
+            },
+            update: {
+                id: sessionId,
+                tokenHash,
+                revoked: false,
+                expiresAt: sessionExpireAt,
+            },
+            create: {
+                id: sessionId,
+                userId,
+                tokenHash,
+                revoked: false,
                 userAgent: req.headers["user-agent"],
                 ipAddress: req.ip,
+                expiresAt: sessionExpireAt,
             },
-        },
-        update: {
-            id: sessionId,
-            tokenHash,
-            revoked: false,
-            expiresAt: sessionExpireAt,
-        },
-        create: {
-            id: sessionId,
-            userId,
-            tokenHash,
-            revoked: false,
-            userAgent: req.headers["user-agent"],
-            ipAddress: req.ip,
-            expiresAt: sessionExpireAt,
-        },
-    });
+        });
 
-    res.json({ token });
+        const { getEffectivePermissions } = require("../rbac/getEffectivePermissions");
+        const effectivePermissions = await getEffectivePermissions(userId, organisationId);
+
+        res.json({
+            token,
+            organisationId,
+            organisationName: membership.organisation.name,
+            roles: effectivePermissions.roles,
+            permissions: effectivePermissions.permissions,
+        });
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
+    }
 });
 
 module.exports = router;

@@ -4,15 +4,26 @@ const api = axios.create({
     baseURL: process.env.NEXT_PUBLIC_BACKEND_BASE_URL,
 });
 
-// set auth token in header
 export const setAuthToken = (token: string | null) => {
     if (token) {
-        //set token
         api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
     } else {
-        //delete token
         delete api.defaults.headers.common["Authorization"];
     }
 };
+
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401 && api.defaults.headers.common["Authorization"]) {
+            setAuthToken(null);
+            if (typeof window !== "undefined") {
+                localStorage.removeItem("auth-storage");
+                window.location.href = "/login";
+            }
+        }
+        return Promise.reject(error);
+    },
+);
 
 export default api;

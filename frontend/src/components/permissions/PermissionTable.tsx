@@ -2,6 +2,8 @@
 
 import { Permission, UpdatePermissionPayload } from "@/types/permission";
 import PermissionRow from "./PermissionRow";
+import { TableSkeleton } from "@/components/ui/Skeleton";
+import { KeyRound } from "lucide-react";
 
 interface PermissionTableProps {
     permissions: Permission[];
@@ -16,25 +18,39 @@ export default function PermissionTable({
     onUpdate,
     onDelete,
 }: PermissionTableProps) {
-    if (loading) {
-        return <p className="text-gray-500">Loading...</p>;
-    }
+    if (loading) return <TableSkeleton rows={5} cols={3} />;
 
     if (permissions.length === 0) {
-        return <p className="text-gray-500">No permissions found.</p>;
+        return (
+            <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center">
+                <KeyRound className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500 font-medium">
+                    No permissions found
+                </p>
+                <p className="text-gray-400 text-sm mt-1">
+                    Create a permission to get started
+                </p>
+            </div>
+        );
     }
 
     return (
-        <div className="border rounded bg-white">
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
             <table className="w-full text-left">
-                <thead className="bg-gray-100">
-                    <tr>
-                        <th className="p-3">Key</th>
-                        <th className="p-3">Description</th>
-                        <th className="p-3">Actions</th>
+                <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                        <th className="px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            Key
+                        </th>
+                        <th className="px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            Description
+                        </th>
+                        <th className="px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            Actions
+                        </th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-gray-100">
                     {permissions.map((perm) => (
                         <PermissionRow
                             key={perm.id}

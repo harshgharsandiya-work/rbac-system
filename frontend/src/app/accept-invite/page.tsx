@@ -1,12 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { acceptInvite } from "@/lib/api/user";
 
 type Status = "idle" | "loading" | "success" | "error";
 
 export default function AcceptInvitePage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-gray-50"><Spinner /></div>
+        }>
+            <AcceptInviteContent />
+        </Suspense>
+    );
+}
+
+function AcceptInviteContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
 
@@ -25,17 +35,18 @@ export default function AcceptInvitePage() {
         handleAccept(token);
     }, [token]);
 
-    async function handleAccept(token: string) {
+    async function handleAccept(inviteToken: string) {
         try {
             setStatus("loading");
-            await acceptInvite(token);
+            await acceptInvite(inviteToken);
             setStatus("success");
             setMessage("You've successfully joined the organisation.");
 
             setTimeout(() => {
                 router.push("/dashboard");
             }, 2500);
-        } catch (err: any) {
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
             setStatus("error");
             setMessage(
                 err?.response?.data?.message ||

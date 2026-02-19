@@ -1,11 +1,7 @@
 const cors = require("cors");
 const express = require("express");
 
-const { requirePermission } = require("./rbac/requirePermission");
-const { authenticate } = require("./auth/authMiddleware");
-
 //routes
-const demoRoutes = require("./routes/demo.routes");
 const authRoutes = require("./routes/auth.routes");
 const permissionsRoutes = require("./routes/permissions.routes");
 const rolesRoutes = require("./routes/roles.routes");
@@ -23,25 +19,20 @@ app.use(
 );
 app.use(express.json());
 
-app.post(
-    "/projects",
-    authenticate,
-    requirePermission("project:create"),
-    (req, res) => {
-        res.json({ message: "Project created 🎉" });
-    },
-);
-
 app.get("/", (req, res) => {
     res.status(200).json("IAM Backend running...");
 });
-
-app.use("/api", demoRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/permissions", permissionsRoutes);
 app.use("/api/roles", rolesRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/invite", inviteRoutes);
 app.use("/api/organisation", organisationRoutes);
+
+// Global error handler
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ message: "Internal server error" });
+});
 
 module.exports = app;

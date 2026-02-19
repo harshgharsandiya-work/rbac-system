@@ -94,35 +94,39 @@ router.get(
     authenticate,
     requirePermission("user:read"),
     async (req, res) => {
-        const { organisationId } = req.user;
+        try {
+            const { organisationId } = req.user;
 
-        const users = await prisma.memberShip.findMany({
-            where: { organisationId },
-            select: {
-                id: true,
-                user: {
-                    select: {
-                        id: true,
-                        email: true,
-                        createdAt: true,
+            const users = await prisma.memberShip.findMany({
+                where: { organisationId },
+                select: {
+                    id: true,
+                    user: {
+                        select: {
+                            id: true,
+                            email: true,
+                            createdAt: true,
+                        },
+                    },
+                    role: {
+                        select: {
+                            id: true,
+                            name: true,
+                        },
                     },
                 },
-                role: {
-                    select: {
-                        id: true,
-                        name: true,
-                    },
-                },
-            },
-        });
+            });
 
-        const formatted = users.map((m) => ({
-            id: m.user.id,
-            email: m.user.email,
-            role: m.role.name,
-        }));
+            const formatted = users.map((m) => ({
+                id: m.user.id,
+                email: m.user.email,
+                role: m.role.name,
+            }));
 
-        res.json(formatted);
+            res.json(formatted);
+        } catch (error) {
+            res.status(500).json({ message: "Failed to fetch users" });
+        }
     },
 );
 
@@ -132,67 +136,71 @@ router.patch(
     authenticate,
     requirePermission("user:update"),
     async (req, res) => {
-        const { userId } = req.params;
-        const { roleIds } = req.body;
-        const { organisationId, id: currentUserId } = req.user;
+        try {
+            const { userId } = req.params;
+            const { roleIds } = req.body;
+            const { organisationId, id: currentUserId } = req.user;
 
-        if (!Array.isArray(roleIds) || roleIds.length === 0) {
-            return res.status(400).json({
-                message: "roleIds must be a non-empty array",
-            });
-        }
+            if (!Array.isArray(roleIds) || roleIds.length === 0) {
+                return res.status(400).json({
+                    message: "roleIds must be a non-empty array",
+                });
+            }
 
-        if (userId === currentUserId) {
-            return res.status(403).json({
-                message: "You cannot change your own role",
-            });
-        }
+            if (userId === currentUserId) {
+                return res.status(403).json({
+                    message: "You cannot change your own role",
+                });
+            }
 
-        const roles = await prisma.role.findMany({
-            where: {
-                id: { in: roleIds },
-                organisationId,
-            },
-        });
-
-        if (roleIds.length !== roles.length) {
-            return res.status(400).json({
-                message: "One or more roles are invalid",
-            });
-        }
-
-        const ownerRole = roles.find((r) => r.name === "OWNER");
-
-        if (ownerRole) {
-            const existingOwner = await prisma.memberShip.findFirst({
+            const roles = await prisma.role.findMany({
                 where: {
+                    id: { in: roleIds },
                     organisationId,
-                    roleId: ownerRole.id,
                 },
             });
 
-            if (existingOwner && existingOwner.userId !== userId) {
+            if (roleIds.length !== roles.length) {
                 return res.status(400).json({
-                    message: "Organisation already has an owner",
+                    message: "One or more roles are invalid",
                 });
             }
+
+            const ownerRole = roles.find((r) => r.name === "OWNER");
+
+            if (ownerRole) {
+                const existingOwner = await prisma.memberShip.findFirst({
+                    where: {
+                        organisationId,
+                        roleId: ownerRole.id,
+                    },
+                });
+
+                if (existingOwner && existingOwner.userId !== userId) {
+                    return res.status(400).json({
+                        message: "Organisation already has an owner",
+                    });
+                }
+            }
+
+            await prisma.$transaction([
+                prisma.memberShip.deleteMany({
+                    where: { userId, organisationId },
+                }),
+
+                prisma.memberShip.createMany({
+                    data: roleIds.map((roleId) => ({
+                        userId,
+                        organisationId,
+                        roleId,
+                    })),
+                }),
+            ]);
+
+            res.json({ message: "User roles updated" });
+        } catch (error) {
+            res.status(500).json({ message: "Failed to update user roles" });
         }
-
-        await prisma.$transaction([
-            prisma.memberShip.deleteMany({
-                where: { userId, organisationId },
-            }),
-
-            prisma.memberShip.createMany({
-                data: roleIds.map((roleId) => ({
-                    userId,
-                    organisationId,
-                    roleId,
-                })),
-            }),
-        ]);
-
-        res.json({ message: "User roles updated" });
     },
 );
 
@@ -202,62 +210,66 @@ router.delete(
     authenticate,
     requirePermission("user:delete"),
     async (req, res) => {
-        const { userId } = req.params;
-        const { organisationId, id: currentUserId } = req.user;
+        try {
+            const { userId } = req.params;
+            const { organisationId, id: currentUserId } = req.user;
 
-        if (userId === currentUserId) {
-            return res.status(400).json({
-                message: "You cannot remove yourself from the organisation",
-            });
-        }
+            if (userId === currentUserId) {
+                return res.status(400).json({
+                    message: "You cannot remove yourself from the organisation",
+                });
+            }
 
-        const memberships = await prisma.memberShip.findMany({
-            where: {
-                userId,
-                organisationId,
-            },
-            include: {
-                role: true,
-                user: {
-                    select: {
-                        email: true,
-                    },
-                },
-            },
-        });
-
-        if (memberships.length === 0) {
-            return res.status(404).json({
-                message: "User not found in organisation",
-            });
-        }
-
-        const hasOwnerRole = memberships.some((m) => m.role.name === "OWNER");
-
-        if (hasOwnerRole) {
-            return res.status(400).json({
-                message: "Cannot remove OWNER from organisation",
-            });
-        }
-
-        const email = memberships[0].user.email;
-
-        await prisma.$transaction([
-            prisma.organisationInvite.deleteMany({
-                where: {
-                    email,
-                    organisationId,
-                },
-            }),
-            prisma.memberShip.deleteMany({
+            const memberships = await prisma.memberShip.findMany({
                 where: {
                     userId,
                     organisationId,
                 },
-            }),
-        ]);
+                include: {
+                    role: true,
+                    user: {
+                        select: {
+                            email: true,
+                        },
+                    },
+                },
+            });
 
-        res.json({ message: "User removed from organisation" });
+            if (memberships.length === 0) {
+                return res.status(404).json({
+                    message: "User not found in organisation",
+                });
+            }
+
+            const hasOwnerRole = memberships.some((m) => m.role.name === "OWNER");
+
+            if (hasOwnerRole) {
+                return res.status(400).json({
+                    message: "Cannot remove OWNER from organisation",
+                });
+            }
+
+            const email = memberships[0].user.email;
+
+            await prisma.$transaction([
+                prisma.organisationInvite.deleteMany({
+                    where: {
+                        email,
+                        organisationId,
+                    },
+                }),
+                prisma.memberShip.deleteMany({
+                    where: {
+                        userId,
+                        organisationId,
+                    },
+                }),
+            ]);
+
+            res.json({ message: "User removed from organisation" });
+        } catch (error) {
+            res.status(500).json({ message: "Failed to remove user" });
+        }
     },
 );
 

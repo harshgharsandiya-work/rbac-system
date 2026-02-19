@@ -1,71 +1,174 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import PermissionGate from "./PermissionGate";
 import { useAuthStore } from "@/store/auth.store";
-import { useRouter } from "next/navigation";
+import {
+    Home,
+    Users,
+    Shield,
+    KeyRound,
+    Settings,
+    LogOut,
+    Menu,
+    X,
+    ChevronRight,
+} from "lucide-react";
+import { useState } from "react";
+import OrgSwitcher from "./OrgSwitcher";
+
+const navItems = [
+    { href: "/dashboard", label: "Home", icon: Home, permission: null },
+    {
+        href: "/dashboard/users",
+        label: "Users",
+        icon: Users,
+        permission: "user:read",
+    },
+    {
+        href: "/dashboard/roles",
+        label: "Roles",
+        icon: Shield,
+        permission: "role:read",
+    },
+    {
+        href: "/dashboard/permissions",
+        label: "Permissions",
+        icon: KeyRound,
+        permission: "permission:read",
+    },
+    {
+        href: "/dashboard/organisation",
+        label: "Organisation",
+        icon: Settings,
+        permission: null,
+    },
+];
 
 export default function Sidebar() {
-    const { email, organisationName, logout } = useAuthStore();
+    const { email, logout } = useAuthStore();
     const router = useRouter();
+    const pathname = usePathname();
+    const [mobileOpen, setMobileOpen] = useState(false);
 
     async function handleLogout() {
         await logout();
         router.push("/");
     }
 
-    return (
-        <aside className="w-64 bg-gray-900 text-white min-h-screen flex flex-col justify-between p-4">
-            <div className="space-y-3">
-                {/* Top */}
-                <h2 className="text-xl font-semibold mb-6">
-                    {organisationName ?? "Dashboard"}
-                </h2>
-                <nav className="space-y-3">
-                    <div>
-                        <Link href="/dashboard">Home</Link>
-                    </div>
+    const isActive = (href: string) =>
+        href === "/dashboard"
+            ? pathname === "/dashboard"
+            : pathname.startsWith(href);
 
-                    <PermissionGate permission="user:read">
-                        <Link href="/dashboard/users">Users</Link>
-                    </PermissionGate>
+    const navContent = (
+        <>
+            {/* Org Switcher */}
+            <OrgSwitcher />
 
-                    <PermissionGate permission="role:read">
-                        <div className="mt-4">
-                            <Link href="/dashboard/roles">Roles</Link>
-                        </div>
-                    </PermissionGate>
+            {/* Navigation */}
+            <nav className="flex-1 px-3 mt-2 space-y-1">
+                {navItems.map((item) => {
+                    const link = (
+                        <Link
+                            key={item.href}
+                            href={item.href}
+                            onClick={() => setMobileOpen(false)}
+                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${
+                                isActive(item.href)
+                                    ? "bg-primary-500/10 text-primary-400"
+                                    : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
+                            }`}
+                        >
+                            <item.icon
+                                className={`w-[18px] h-[18px] flex-shrink-0 ${
+                                    isActive(item.href)
+                                        ? "text-primary-400"
+                                        : "text-gray-500 group-hover:text-gray-300"
+                                }`}
+                            />
+                            {item.label}
+                            {isActive(item.href) && (
+                                <ChevronRight className="w-4 h-4 ml-auto text-primary-400" />
+                            )}
+                        </Link>
+                    );
 
-                    <PermissionGate permission="permission:read">
-                        <div className="mt-4">
-                            <Link href="/dashboard/permissions">
-                                Permissions
-                            </Link>
-                        </div>
-                    </PermissionGate>
-                </nav>
-            </div>
+                    if (item.permission) {
+                        return (
+                            <PermissionGate
+                                key={item.href}
+                                permission={item.permission}
+                            >
+                                {link}
+                            </PermissionGate>
+                        );
+                    }
+                    return link;
+                })}
+            </nav>
 
-            {/* Bottom */}
-            <div className="mt-8">
-                <div className="border-t border-gray-700 pt-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        {/* Avatar */}
-                        <div className="w-9 h-9 rounded-full bg-gray-700 flex items-center justify-center uppercase">
+            {/* User section */}
+            <div className="p-3 mt-auto">
+                <div className="border-t border-gray-800 pt-4">
+                    <div className="flex items-center gap-3 px-2">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-500 to-violet-500 flex items-center justify-center text-white text-sm font-semibold uppercase flex-shrink-0">
                             {email?.[0]}
                         </div>
-                        <div className="text-sm">
-                            <p className="text-gray-400 text-xs">{email}</p>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-200 truncate">
+                                {email}
+                            </p>
                         </div>
                     </div>
                     <button
                         onClick={handleLogout}
-                        className="text-red-400 hover:text-red-300 text-sm"
+                        className="flex items-center gap-2 w-full px-3 py-2.5 mt-3 text-sm text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all"
                     >
-                        Logout
+                        <LogOut className="w-4 h-4" />
+                        Sign out
                     </button>
                 </div>
             </div>
-        </aside>
+        </>
+    );
+
+    return (
+        <>
+            {/* Mobile toggle */}
+            <button
+                onClick={() => setMobileOpen(!mobileOpen)}
+                className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-gray-900 text-white rounded-xl shadow-lg"
+            >
+                {mobileOpen ? (
+                    <X className="w-5 h-5" />
+                ) : (
+                    <Menu className="w-5 h-5" />
+                )}
+            </button>
+
+            {/* Mobile overlay */}
+            {mobileOpen && (
+                <div
+                    className="lg:hidden fixed inset-0 bg-black/50 z-40"
+                    onClick={() => setMobileOpen(false)}
+                />
+            )}
+
+            {/* Desktop sidebar */}
+            <aside className="hidden lg:flex w-64 bg-gray-950 min-h-screen flex-col flex-shrink-0">
+                {navContent}
+            </aside>
+
+            {/* Mobile sidebar */}
+            <aside
+                className={`lg:hidden fixed inset-y-0 left-0 w-64 bg-gray-950 z-50 flex flex-col transform transition-transform duration-300 ${
+                    mobileOpen ? "translate-x-0" : "-translate-x-full"
+                }`}
+            >
+                {navContent}
+            </aside>
+        </>
     );
 }

@@ -15,10 +15,20 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="en">
-            <body className="bg-gray-100 text-gray-900">
+            <body className="bg-gray-50 text-gray-900 antialiased">
                 <AuthInitializer />
                 {children}
-                <Toaster position="top-right" />
+                <Toaster
+                    position="top-right"
+                    toastOptions={{
+                        style: {
+                            borderRadius: "12px",
+                            background: "#1e293b",
+                            color: "#f8fafc",
+                            fontSize: "14px",
+                        },
+                    }}
+                />
             </body>
         </html>
     );
