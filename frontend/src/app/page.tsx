@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
     Shield,
@@ -8,6 +10,7 @@ import {
     Layers,
     KeyRound,
 } from "lucide-react";
+import { useAuthStore } from "@/store/auth.store";
 
 const features = [
     {
@@ -49,6 +52,10 @@ const features = [
 ];
 
 export default function Home() {
+    const { token, _hasHydrated } = useAuthStore();
+
+    if (!_hasHydrated) return null;
+
     return (
         <main className="min-h-screen">
             {/* Hero */}
@@ -72,19 +79,32 @@ export default function Home() {
                     </p>
 
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <Link
-                            href="/register"
-                            className="group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-white text-gray-900 font-semibold rounded-xl hover:bg-gray-100 transition-all duration-200 shadow-lg shadow-white/10"
-                        >
-                            Get Started
-                            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                        </Link>
-                        <Link
-                            href="/login"
-                            className="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-white/10 backdrop-blur-sm text-white font-semibold rounded-xl border border-white/20 hover:bg-white/20 transition-all duration-200"
-                        >
-                            Sign In
-                        </Link>
+                        {token ? (
+                            <Link
+                                href="/dashboard"
+                                className="group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-white text-gray-900 font-semibold rounded-xl hover:bg-gray-100 transition-all duration-200 shadow-lg shadow-white/10"
+                            >
+                                Go to Dashboard
+                                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                            </Link>
+                        ) : (
+                            <>
+                                <Link
+                                    href="/register"
+                                    className="group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-white text-gray-900 font-semibold rounded-xl hover:bg-gray-100 transition-all duration-200 shadow-lg shadow-white/10"
+                                >
+                                    Get Started
+                                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                                </Link>
+
+                                <Link
+                                    href="/login"
+                                    className="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-white/10 backdrop-blur-sm text-white font-semibold rounded-xl border border-white/20 hover:bg-white/20 transition-all duration-200"
+                                >
+                                    Sign In
+                                </Link>
+                            </>
+                        )}
                     </div>
                 </div>
             </section>
@@ -100,8 +120,8 @@ export default function Home() {
                         </span>
                     </h2>
                     <p className="text-gray-500 max-w-xl mx-auto">
-                        Built for teams that need flexible, secure, and
-                        scalable permission management.
+                        Built for teams that need flexible, secure, and scalable
+                        permission management.
                     </p>
                 </div>
 
