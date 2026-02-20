@@ -64,6 +64,22 @@ const defaultPermissions = [
         key: "permission:delete",
         description: "Allows deleting permissions",
     },
+    {
+        key: "api_key:create",
+        description: "Allows creating Api Key",
+    },
+    {
+        key: "api_key:read",
+        description: "Allows viewing Api Key",
+    },
+    {
+        key: "api_key:revoke",
+        description: "Allows updating Api Key",
+    },
+    {
+        key: "api_key:delete",
+        description: "Allows deleting Api Key",
+    },
 ];
 
 module.exports = { defaultPermissions };
