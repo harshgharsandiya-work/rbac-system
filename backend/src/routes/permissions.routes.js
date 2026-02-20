@@ -25,8 +25,8 @@ router.post(
         });
 
         if (keyExist) {
-            return res.status(401).json({
-                message: "Permission key is aldready used",
+            return res.status(409).json({
+                message: "Permission key is already used",
             });
         }
 

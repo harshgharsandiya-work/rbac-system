@@ -18,6 +18,8 @@ async function verifyEmailConnection() {
     }
 }
 
+verifyEmailConnection();
+
 module.exports = {
     transporter,
     verifyEmailConnection,

@@ -1,12 +1,11 @@
-//to check if user has permission to access resources
-
 "use client";
 
 import { useHasPermission } from "@/lib/permission";
+import { ReactNode } from "react";
 
 interface PermissionGateProps {
     permission: string;
-    children: any;
+    children: ReactNode;
 }
 
 export default function PermissionGate({
@@ -17,5 +16,5 @@ export default function PermissionGate({
 
     if (!allowed) return null;
 
-    return children;
+    return <>{children}</>;
 }

@@ -30,8 +30,8 @@ router.post(
             },
         });
         if (isRoleExist) {
-            return res.status(400).json({
-                message: "Role is aldready exist",
+            return res.status(409).json({
+                message: "Role already exists",
             });
         }
 

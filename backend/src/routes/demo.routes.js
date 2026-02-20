@@ -1,15 +1,18 @@
 const express = require("express");
 const prisma = require("../config/prisma");
 const { canAccess } = require("../rbac/canAccess");
+const apiKeyAuth = require("../auth/apiKey.middleware");
+const { authenticate } = require("../auth/authMiddleware");
 
 const router = express.Router();
 
-router.post("/demo", async (req, res) => {
-    const { userId, organisationId } = req.body;
+router.get("/access", apiKeyAuth, async (req, res) => {
+    const { organisationId, userId } = req.api;
 
-    const canCreate = await canAccess(userId, organisationId, "project:create");
     res.json({
-        canCreate,
+        message: "API1 key is valid",
+        organisationId,
+        userId,
     });
 });
 
