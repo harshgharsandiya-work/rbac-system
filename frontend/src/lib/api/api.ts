@@ -15,13 +15,21 @@ export const setAuthToken = (token: string | null) => {
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response?.status === 401 && api.defaults.headers.common["Authorization"]) {
+        const status = error.response?.status;
+        const requestAuthHeader = error.config?.headers?.Authorization;
+
+        // Only logout if:
+        // 1. Status is 401
+        // 2. This request actually sent a Bearer token
+        if (status === 401 && requestAuthHeader) {
             setAuthToken(null);
+
             if (typeof window !== "undefined") {
                 localStorage.removeItem("auth-storage");
                 window.location.href = "/login";
             }
         }
+
         return Promise.reject(error);
     },
 );

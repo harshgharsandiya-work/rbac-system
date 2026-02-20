@@ -10,6 +10,9 @@ const inviteRoutes = require("./routes/invite.routes");
 const organisationRoutes = require("./routes/organisation.routes");
 const apiKeyRoutes = require("./routes/apiKey.routes");
 
+//demo routes
+const demoRoutes = require("./routes/demo.routes");
+
 const app = express();
 
 app.use(
@@ -30,6 +33,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/invite", inviteRoutes);
 app.use("/api/organisation", organisationRoutes);
 app.use("/api/keys", apiKeyRoutes);
+app.use("/api/demo", demoRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {

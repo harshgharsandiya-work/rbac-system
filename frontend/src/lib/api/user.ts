@@ -1,4 +1,4 @@
-import api from "./api";
+import api from "@/lib/api/api";
 import { User, InviteUserPayload, UpdateUserRolesPayload } from "@/types/user";
 
 // get all users

@@ -15,6 +15,8 @@ import {
     X,
     ChevronRight,
     ArrowLeftRight,
+    Key,
+    KeySquareIcon,
 } from "lucide-react";
 import { useState } from "react";
 import OrgSwitcher from "@/components/org/OrgSwitcher";
@@ -56,6 +58,19 @@ const navItems = [
         href: "/dashboard/organisation/switch",
         label: "Switch Org",
         icon: ArrowLeftRight,
+        permission: null,
+    },
+    {
+        href: "/dashboard/organisation/api-keys",
+        label: "API Keys",
+        icon: Key,
+        permission: null,
+        exact: true,
+    },
+    {
+        href: "/dashboard/organisation/api-keys/demo",
+        label: "API Access Demo",
+        icon: KeySquareIcon,
         permission: null,
     },
 ];

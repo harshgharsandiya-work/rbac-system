@@ -6,7 +6,7 @@ async function apiKeyAuth(req, res, next) {
         const header = req.headers["x-api-key"];
 
         if (!header) {
-            return res.status(404).json({
+            return res.status(401).json({
                 message: "API key is required",
             });
         }
@@ -27,7 +27,7 @@ async function apiKeyAuth(req, res, next) {
             return res.status(401).json({ message: "Invalid API key" });
         }
 
-        if (apiKey.expiresAt || apiKey.expiresAt < new Date()) {
+        if (apiKey.expiresAt && apiKey.expiresAt < new Date()) {
             return res.status(401).json({
                 message: "API key expired",
             });
@@ -44,4 +44,4 @@ async function apiKeyAuth(req, res, next) {
     }
 }
 
-module.exports = { apiKeyAuth };
+module.exports = apiKeyAuth;
