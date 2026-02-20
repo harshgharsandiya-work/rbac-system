@@ -21,6 +21,78 @@ A full-stack Identity & Access Management (IAM) project with multi-tenant RBAC, 
 
 ---
 
+## Usage Flow
+
+### Home Page
+
+Access the application home page:
+![Home Page](./demo/img/4_home_page.png)
+
+### User Registration
+
+Register a new user and receive verification code:
+![Register Page](./demo/img/7_register_page.png)
+![Verification Code](./demo/img/7_verification_code_after_register.png)
+
+Verify email:
+![Verify Mail Page](./demo/img/8_verify_mail_page.png)
+
+### Login
+
+Login to access the dashboard:
+![Login Page](./demo/img/9_login_page.png)
+![Dashboard After Login](./demo/img/9_dashboard_page_after_login.png)
+
+### Forgot Password
+
+Recover password via OTP:
+![Forgot Password Page](./demo/img/10_forgot_password_page.png)
+![OTP Received](./demo/img/10_forgot_password_otp_received.png)
+![Reset Password Page](./demo/img/10_forgot_password_reset_password_page.png)
+
+### Dashboard Overview
+
+Home dashboard:
+![Dashboard Home](./demo/img/11_dashboard_home_page.png)
+
+### Manage Users
+
+User management page before and after adding a new user:
+![Users Page](./demo/img/12_dashboard_user_page.png)
+![Users After Adding](./demo/img/12_dashboard_user_page_after_adding_new_user.png)
+
+### Manage Roles
+
+Role management page before and after creating a new role:
+![Roles Page](./demo/img/13_dashboard_role_page.png)
+![Roles After Creating](./demo/img/13_dashboard_role_page_after_creating_new_role.png)
+
+### Manage Permissions
+
+Permissions page:
+![Permissions Page](./demo/img/14_dashboard_permission_page.png)
+
+### Manage Organizations
+
+Organizations page:
+![Organizations Page](./demo/img/15_dashboard_organisation_page.png)
+
+Switch organizations before and after creating a new one:
+![Switch Org Page](./demo/img/16_switch_organisation_switch_page.png)
+![Switch Org After Creating](./demo/img/16_switch_organisation_switch_page_after_creating_new_organisation.png)
+
+### API Keys
+
+API key management before and after creating/revoking:
+![API Key Page](./demo/img/17_api_key_page.png)
+![API Key After Changes](./demo/img/17_api_key_page_after_creating_revoke_api_key.png)
+
+### API Access Demo
+
+API access demo before and after entering a valid key:
+![API Access Page](./demo/img/18_api_access_demo_page.png)
+![API Access After Valid Key](./demo/img/18_api_access_demo_page_after_entering_valid_key.png)
+
 ## Core Features
 
 ## 1) Authentication & Session Management
@@ -246,9 +318,15 @@ GET /api/demo/access (API key auth)
 - `MAIL_PASS`
 - `MAIL_FROM`
 
+Backend `.env`:
+![Backend Env](./demo/img/2_backend_env.png)
+
 ### Frontend (`frontend/.env.local`)
 
 - `NEXT_PUBLIC_BACKEND_BASE_URL` (e.g. `http://localhost:4000/api`)
+
+Frontend `.env`:
+![Frontend Env](./demo/img/2_frontend_env.png)
 
 ---
 
@@ -265,6 +343,9 @@ npx prisma generate
 pnpm dev
 ```
 
+Start the backend:
+![Backend Run](./demo/img/3_backend_cmd_run.png)
+
 ### 2) Frontend
 
 ```bash
@@ -272,6 +353,9 @@ cd frontend
 pnpm install
 pnpm dev
 ```
+
+Start the frontend:
+![Frontend Run](./demo/img/3_frontend_cmd_run.png)
 
 Frontend runs on `http://localhost:3000` and should point to backend API base URL.
 
