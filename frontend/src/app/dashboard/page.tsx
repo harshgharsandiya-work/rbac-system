@@ -15,8 +15,16 @@ import {
 } from "lucide-react";
 
 export default function DashboardHome() {
-    const { roles, permissions, organisationName } = useAuthStore();
+    const { roles, permissions, organisationName, organisationStatus } =
+        useAuthStore();
     const router = useRouter();
+
+    const orgStatus =
+        organisationStatus !== null
+            ? organisationStatus
+                ? "Active"
+                : "Inactive"
+            : "Unknown";
 
     return (
         <div className="space-y-8 animate-fade-in">
@@ -56,7 +64,7 @@ export default function DashboardHome() {
                 />
                 <StatCard
                     title="Workspace Status"
-                    value="Active"
+                    value={orgStatus}
                     icon={Activity}
                     color="emerald"
                 />
@@ -97,9 +105,7 @@ export default function DashboardHome() {
                     <ActionButton
                         label="Organisation Settings"
                         icon={Settings}
-                        onClick={() =>
-                            router.push("/dashboard/organisation")
-                        }
+                        onClick={() => router.push("/dashboard/organisation")}
                     />
                 </div>
             </section>

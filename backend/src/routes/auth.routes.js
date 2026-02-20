@@ -25,7 +25,9 @@ router.post("/register", async (req, res) => {
         const { email, password } = req.body;
 
         if (!email || !password) {
-            return res.status(400).json({ message: "Email and password are required" });
+            return res
+                .status(400)
+                .json({ message: "Email and password are required" });
         }
 
         const user = await prisma.user.findUnique({
@@ -33,7 +35,9 @@ router.post("/register", async (req, res) => {
         });
 
         if (user && user.isActive) {
-            return res.status(400).json({ message: "User is already registered" });
+            return res
+                .status(400)
+                .json({ message: "User is already registered" });
         }
 
         const passwordHash = await hashPassword(password);
@@ -68,7 +72,9 @@ router.post("/verify-email", async (req, res) => {
     const { email, token } = req.body;
 
     if (!email || !token) {
-        return res.status(400).json({ message: "Email and token are required" });
+        return res
+            .status(400)
+            .json({ message: "Email and token are required" });
     }
 
     try {
@@ -165,7 +171,9 @@ router.post("/login", async (req, res) => {
         const { email, password } = req.body;
 
         if (!email || !password) {
-            return res.status(400).json({ message: "Email and password are required" });
+            return res
+                .status(400)
+                .json({ message: "Email and password are required" });
         }
 
         const user = await prisma.user.findUnique({
@@ -197,7 +205,10 @@ router.post("/login", async (req, res) => {
                 },
             });
 
-            if (!verificationToken || verificationToken.expiresAt < new Date()) {
+            if (
+                !verificationToken ||
+                verificationToken.expiresAt < new Date()
+            ) {
                 const newToken = await createVerificationToken(
                     user.id,
                     "EMAIL_VERIFY",
@@ -271,6 +282,7 @@ router.post("/login", async (req, res) => {
             token,
             organisationId: defaultOrg.id,
             organisationName: defaultOrg.name,
+            organisationStatus: defaultOrg.isActive,
             roles: effectivePermissions.roles,
             permissions: effectivePermissions.permissions,
         });
@@ -285,7 +297,9 @@ router.post("/reset-password", authenticate, async (req, res) => {
         const { currentPassword, newPassword } = req.body;
 
         if (!currentPassword || !newPassword) {
-            return res.status(400).json({ message: "Current and new password are required" });
+            return res
+                .status(400)
+                .json({ message: "Current and new password are required" });
         }
 
         const userId = req.user.id;
@@ -294,7 +308,10 @@ router.post("/reset-password", authenticate, async (req, res) => {
             where: { id: userId },
         });
 
-        const isValid = await verifyPassword(currentPassword, user.passwordHash);
+        const isValid = await verifyPassword(
+            currentPassword,
+            user.passwordHash,
+        );
 
         if (!isValid) {
             return res.status(400).json({
@@ -351,7 +368,9 @@ router.post("/reset-password-token", async (req, res) => {
     const { email, token, newPassword } = req.body;
 
     if (!email || !token || !newPassword) {
-        return res.status(400).json({ message: "Email, token, and new password are required" });
+        return res
+            .status(400)
+            .json({ message: "Email, token, and new password are required" });
     }
 
     try {

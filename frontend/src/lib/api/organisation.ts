@@ -19,6 +19,7 @@ export interface SwitchOrganisationResponse {
     token: string;
     organisationId: string;
     organisationName: string;
+    organisationStatus: boolean;
     roles: string[];
     permissions: string[];
 }
@@ -41,7 +42,9 @@ export const updateOrganisation = async (data: {
     return response.data;
 };
 
-export const switchOrganisation = async (organisationId: string): Promise<SwitchOrganisationResponse> => {
+export const switchOrganisation = async (
+    organisationId: string,
+): Promise<SwitchOrganisationResponse> => {
     const response = await api.post("/organisation/switch", { organisationId });
     return response.data;
 };

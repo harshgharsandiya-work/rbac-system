@@ -251,7 +251,9 @@ router.patch(
             });
 
             if (!organisation) {
-                return res.status(404).json({ message: "Organisation not found" });
+                return res
+                    .status(404)
+                    .json({ message: "Organisation not found" });
             }
 
             if (slug && slug !== organisation.slug) {
@@ -302,7 +304,9 @@ router.post("/switch", authenticate, async (req, res) => {
         });
 
         if (!membership) {
-            return res.status(403).json({ message: "Not a member of this org" });
+            return res
+                .status(403)
+                .json({ message: "Not a member of this org" });
         }
 
         const userAgent = req.headers["user-agent"] || "unknown";
@@ -345,12 +349,16 @@ router.post("/switch", authenticate, async (req, res) => {
             },
         });
 
-        const effectivePermissions = await getEffectivePermissions(userId, organisationId);
+        const effectivePermissions = await getEffectivePermissions(
+            userId,
+            organisationId,
+        );
 
         res.json({
             token,
             organisationId,
             organisationName: membership.organisation.name,
+            oranisationStatus: membership.organisation.isActive,
             roles: effectivePermissions.roles,
             permissions: effectivePermissions.permissions,
         });

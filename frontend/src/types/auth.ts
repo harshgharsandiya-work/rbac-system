@@ -18,6 +18,7 @@ export interface LoginResponse {
     token: string;
     organisationId: string;
     organisationName: string;
+    organisationStatus: boolean;
     roles: string[];
     permissions: string[];
 }

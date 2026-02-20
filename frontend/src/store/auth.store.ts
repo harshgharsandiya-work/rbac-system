@@ -3,7 +3,11 @@ import { persist } from "zustand/middleware";
 import { setAuthToken } from "@/lib/api/api";
 import { logoutUser } from "@/lib/api/auth";
 import { LoginResponse } from "@/types/auth";
-import { switchOrganisation, getAllOrganisations, OrganisationSummary } from "@/lib/api/organisation";
+import {
+    switchOrganisation,
+    getAllOrganisations,
+    OrganisationSummary,
+} from "@/lib/api/organisation";
 
 interface AuthState {
     email: string | null;
@@ -12,6 +16,7 @@ interface AuthState {
     permissions: string[];
     organisationId: string | null;
     organisationName: string | null;
+    organisationStatus: boolean | null;
     organisations: OrganisationSummary[];
     switchingOrg: boolean;
     _hasHydrated: boolean;
@@ -33,6 +38,7 @@ export const useAuthStore = create<AuthState>()(
             permissions: [],
             organisationId: null,
             organisationName: null,
+            organisationStatus: null,
             organisations: [],
             switchingOrg: false,
             _hasHydrated: false,
@@ -51,6 +57,7 @@ export const useAuthStore = create<AuthState>()(
                     permissions: data.permissions,
                     organisationId: data.organisationId,
                     organisationName: data.organisationName,
+                    organisationStatus: data.organisationStatus,
                 });
             },
 
@@ -70,6 +77,7 @@ export const useAuthStore = create<AuthState>()(
                     permissions: [],
                     organisationId: null,
                     organisationName: null,
+                    organisationStatus: null,
                     organisations: [],
                     switchingOrg: false,
                 });
@@ -97,6 +105,7 @@ export const useAuthStore = create<AuthState>()(
                         token: data.token,
                         organisationId: data.organisationId,
                         organisationName: data.organisationName,
+                        organisationStatus: data.organisationStatus,
                         roles: data.roles,
                         permissions: data.permissions,
                         switchingOrg: false,
@@ -120,6 +129,7 @@ export const useAuthStore = create<AuthState>()(
                 permissions: state.permissions,
                 organisationId: state.organisationId,
                 organisationName: state.organisationName,
+                organisationStatus: state.organisationStatus,
                 organisations: state.organisations,
             }),
             onRehydrateStorage: () => {
