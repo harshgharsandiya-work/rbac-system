@@ -15,6 +15,7 @@ model User {
   memberShips        MemberShip[]
   sessions           Session[]
   verificationTokens VerificationToken[]
+  apiKeys            ApiKey[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -155,17 +156,21 @@ model OrganisationInvite {
 }
 
 model ApiKey {
-  id             String    @id @default(cuid())
-  organisationId String
-  name           String
-  keyHash        String    @unique
-  lastUsedAt     DateTime?
-  revoked        Boolean   @default(false)
+  id              String  @id @default(cuid())
+  organisationId  String
+  createdByUserId String
+  name            String
+  keyHash         String  @unique
+  revoked         Boolean @default(false)
 
   organisation Organisation @relation(fields: [organisationId], references: [id])
+  user         User         @relation(fields: [createdByUserId], references: [id])
 
   createdAt DateTime  @default(now())
   expiresAt DateTime?
+
+  @@index([organisationId])
+  @@index([createdByUserId])
 }
 
 model Subscription {

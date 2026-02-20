@@ -17,7 +17,7 @@ import {
     ArrowLeftRight,
 } from "lucide-react";
 import { useState } from "react";
-import OrgSwitcher from "./OrgSwitcher";
+import OrgSwitcher from "@/components/org/OrgSwitcher";
 
 const navItems = [
     {
